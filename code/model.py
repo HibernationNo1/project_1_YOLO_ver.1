@@ -13,7 +13,7 @@ class YOLOv1(Model):
 								input_shape=(input_height, input_width, 3))
 		base_model.trainable = True
 		x = base_model.output
-
+    
 		# Global Average Pooling
 		x = GlobalAveragePooling2D()(x)
 		output = Dense(cell_size * cell_size * (num_classes + (boxes_per_cell*5)), activation=None)(x)

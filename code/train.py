@@ -8,7 +8,7 @@ from tensorflow.keras.optimizers import schedules
 from tensorflow.keras.optimizers import Adam
 
 
-from utils import generate_color, dir_setting, save_tensorboard_log, save_checkpoint
+from utils import generate_color, dir_setting, save_checkpoint
 from dataset import load_pascal_voc_dataset
 
 #flags instance로 hyper parameters setting
@@ -148,9 +148,25 @@ def train_step(optimizer, model, batch_image, batch_bbox, batch_labels):
 	gradients = tape.gradient(total_loss, model.trainable_variables)
 	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-	return total_loss, coord_loss, object_loss, noobject_loss, class_loss
+	loss_dict = dict()
+	loss_dict['total_loss'] = total_loss
+	loss_dict['coord_loss'] = coord_loss 
+	loss_dict['object_loss'] = object_loss 
+	loss_dict['noobject_loss'] = noobject_loss 
+	loss_dict['class_loss'] = class_loss 
 
-   
+	return loss_dict
+
+def save_tensorboard_log(train_summary_writer, optimizer, loss_dict, ckpt):
+	# 현재 시점의 step의 각 loss값을 write
+	with train_summary_writer.as_default():
+		tf.summary.scalar('learning_rate ', optimizer.lr(ckpt.step).numpy(), step=int(ckpt.step))
+		tf.summary.scalar('total_loss',	loss_dict['total_loss'], step=int(ckpt.step))
+		tf.summary.scalar('coord_loss', loss_dict['coord_loss'], step=int(ckpt.step))
+		tf.summary.scalar('object_loss ', loss_dict['object_loss'], step=int(ckpt.step))
+		tf.summary.scalar('noobject_loss ', loss_dict['noobject_loss'], step=int(ckpt.step))
+		tf.summary.scalar('class_loss ', loss_dict['class_loss'], step=int(ckpt.step)) 
+
 def save_validation_result(model, ckpt, validation_summary_writer, num_visualize_image):
 	total_validation_total_loss = 0.0
 	total_validation_coord_loss = 0.0  # 전체 data의 validation data
@@ -346,11 +362,7 @@ def main(_):
 			batch_labels = tf.squeeze(batch_labels, axis=1)
 
 			# run optimization and compute loss
-			(total_loss,
-			 coord_loss,
-			 object_loss, 
-			 noobject_loss, 
-			 class_loss) = train_step(optimizer,
+			loss_dict = train_step(optimizer,
 									  YOLOv1_model,
 									  batch_image,
 									  batch_bbox,
@@ -362,7 +374,7 @@ def main(_):
 
 			# save tensorboard log
 			save_tensorboard_log(train_summary_writer, optimizer,
-								total_loss, coord_loss, object_loss, noobject_loss, class_loss,
+								loss_dict,
 								ckpt)
 
 			# save checkpoint

@@ -82,17 +82,6 @@ def set_checkpoint_manager(	input_height,
 	return ckpt, ckpt_manager, YOLOv1_model
 
 
-def save_tensorboard_log(train_summary_writer, optimizer, total_loss,
-						 coord_loss, object_loss, noobject_loss, class_loss, ckpt):
-	# 현재 시점의 step의 각 loss값을 write
-	with train_summary_writer.as_default():
-		tf.summary.scalar('learning_rate ', optimizer.lr(ckpt.step).numpy(), step=int(ckpt.step))
-		tf.summary.scalar('total_loss', total_loss, step=int(ckpt.step))
-		tf.summary.scalar('coord_loss', coord_loss, step=int(ckpt.step))
-		tf.summary.scalar('object_loss ', object_loss, step=int(ckpt.step))
-		tf.summary.scalar('noobject_loss ', noobject_loss, step=int(ckpt.step))
-		tf.summary.scalar('class_loss ', class_loss, step=int(ckpt.step))
-
 def save_checkpoint(ckpt, ckpt_manager, save_checkpoint_steps):
 	# save checkpoint
 	# ckpt.step이 FLAGS.save_checkpoint_steps에 도달 할 때마다
