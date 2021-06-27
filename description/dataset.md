@@ -22,7 +22,7 @@ import tensorflow_datasets as tfds
 - [process_each_ground_truth](#process_each_ground_truth)
 - [zero_trim_ndarray](#zero_trim_ndarray)
 - [bounds_per_dimension](#bounds_per_dimension)
-- [Full code](#Full code)
+- [Full code](#Full-code)
 
 
 
@@ -350,5 +350,4 @@ def process_each_ground_truth(original_image,
 
     return [image.numpy(), labels, object_num]
 ```
-
 
