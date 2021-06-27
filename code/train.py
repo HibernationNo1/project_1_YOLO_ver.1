@@ -8,7 +8,7 @@ from tensorflow.keras.optimizers import schedules
 from tensorflow.keras.optimizers import Adam
 
 
-from utils import generate_color, dir_setting, save_checkpoint
+from utils import generate_color, dir_setting, save_checkpoint, set_checkpoint_manager
 from dataset import load_pascal_voc_dataset
 
 #flags instance로 hyper parameters setting
@@ -37,7 +37,7 @@ cat_class_to_label_dict = {v: k for k, v in cat_label_dict.items()}
 # 위의 cat_label_dict의 key와 value의 위치(역할)을 바꾼 dict
 # 해당 code에서는 cat에 대한 class만 classification할 것이기 때문에 cat만 set
 
-dir_name = 'train1'
+dir_name = 'tmp'
 # 이전에 했던 training을 다시 시작할 때 False, 계속 이어서 할 땐 True 
 CONTINUE_LEARNING = False
 
@@ -60,6 +60,12 @@ class_scale = 0.1  # original paper : 1
 object_scale = 1	# original paper : None
 noobject_scale = 0.5	# original paper : None
 
+loss_dict = dict()
+loss_dict['total_loss'] = 0.0
+loss_dict['coord_loss'] = 0.0
+loss_dict['object_loss'] = 0.0 
+loss_dict['noobject_loss'] = 0.0 
+loss_dict['class_loss'] = 0.0 
 
 import numpy as np
 import random
@@ -79,21 +85,16 @@ batch_bbox : batch bounding box
 batch_labels : label data
 '''
 def calculate_loss(model, batch_image, batch_bbox, batch_labels):
-	total_loss = 0.0
-	coord_loss = 0.0
-	object_loss = 0.0
-	noobject_loss = 0.0
-	class_loss = 0.0
 	for batch_index in range(batch_image.shape[0]): # 전체 batch에 대해서 1개씩 반복
 		image, labels, object_num = process_each_ground_truth(batch_image[batch_index],
-                                                           	  batch_bbox[batch_index],
-                                                          	  batch_labels[batch_index],
+														   	  batch_bbox[batch_index],
+														  	  batch_labels[batch_index],
 														  	  input_width, input_height)
 		# process_each_ground_truth : 원하는 data를 parsing
 		# image : resize된 data
 		# labels : 절대 좌표
 		# object_num : object 개수
-    
+	
 		image = tf.expand_dims(image, axis=0)
 		# expand_dims을 사용해서 0차원에 dummy dimension 추가
 
@@ -104,60 +105,46 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels):
 
 		# shape = [1, cell_size, cell_size, num_classes, 5 * boxes_per_cell]
 
+		# print(tf.shape(predict))  # tf.Tensor([ 1  7  7 11], shape=(4,), dtype=int32)
+		# print(tf.shape(predict[0])) # tf.Tensor([ 7  7 11], shape=(3,), dtype=int32)
+
+
 		for object_num_index in range(object_num): # 실제 object개수만큼 for루프
 			(each_object_total_loss, 
 			 each_object_coord_loss, 
 			 each_object_object_loss, 
 			 each_object_noobject_loss, 
 			 each_object_class_loss) = yolo_loss(predict[0],
-                                   				 labels,
-                                   				 object_num_index,
-                                   				 num_classes,
-                                   				 boxes_per_cell,
-                                   				 cell_size,
-                                   				 input_width,
-                                    			 input_height,
-                                   				 coord_scale,
-                                   				 object_scale,
-                                   				 noobject_scale,
-                                   				 class_scale )
-        # 각 return값은 1개의 image에 대한 여러 loss 값임
-   
-			total_loss = total_loss + each_object_total_loss
-			coord_loss = coord_loss + each_object_coord_loss
-			object_loss = object_loss + each_object_object_loss
+								   				 labels,
+								   				 object_num_index,
+								   				 num_classes,
+								   				 boxes_per_cell,
+								   				 cell_size,
+								   				 input_width,
+												 input_height,
+								   				 coord_scale,
+								   				 object_scale,
+								   				 noobject_scale,
+								   				 class_scale )
+		# 각 return값은 1개의 image에 대한 여러 loss 값임
 			# 각각 전체의 batch에 대해서 loss 합산
+			loss_dict['total_loss'] = loss_dict['total_loss'] + each_object_total_loss
+			loss_dict['coord_loss'] = loss_dict['coord_loss'] + each_object_coord_loss
+			loss_dict['object_loss'] = loss_dict['object_loss'] + each_object_object_loss
+			loss_dict['noobject_loss'] = loss_dict['noobject_loss'] + each_object_noobject_loss
+			loss_dict['class_loss'] = loss_dict['class_loss'] + each_object_class_loss
 
-		noobject_loss = noobject_loss + each_object_noobject_loss
-# gradient descent을 수행하는 method      class_loss = class_loss + each_object_class_loss
 
-	return total_loss, coord_loss, object_loss, noobject_loss, class_loss
-                                                 
- 
+# gradient descent을 수행하는 method 
 def train_step(optimizer, model, batch_image, batch_bbox, batch_labels): 
 	with tf.GradientTape() as tape:
-		(total_loss, 
-		 coord_loss,
-		 object_loss, 
-		 noobject_loss, 
-		 class_loss) = calculate_loss(model,
-									  batch_image,
-									  batch_bbox,
-									  batch_labels)
-	# tensor board를 남기기 위해 return
-	gradients = tape.gradient(total_loss, model.trainable_variables)
+		calculate_loss(model, batch_image, batch_bbox, batch_labels )
+	
+	gradients = tape.gradient(loss_dict['total_loss'], model.trainable_variables)
 	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-	loss_dict = dict()
-	loss_dict['total_loss'] = total_loss
-	loss_dict['coord_loss'] = coord_loss 
-	loss_dict['object_loss'] = object_loss 
-	loss_dict['noobject_loss'] = noobject_loss 
-	loss_dict['class_loss'] = class_loss 
 
-	return loss_dict
-
-def save_tensorboard_log(train_summary_writer, optimizer, loss_dict, ckpt):
+def save_tensorboard_log(train_summary_writer, optimizer, ckpt):
 	# 현재 시점의 step의 각 loss값을 write
 	with train_summary_writer.as_default():
 		tf.summary.scalar('learning_rate ', optimizer.lr(ckpt.step).numpy(), step=int(ckpt.step))
@@ -182,7 +169,7 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 		batch_validation_image = tf.squeeze(batch_validation_image, axis=1)                                                                                                                                      
 		batch_validation_bbox = tf.squeeze(batch_validation_bbox, axis=1)
 		batch_validation_labels = tf.squeeze(batch_validation_labels, axis=1)
-    
+	
 		(validation_total_loss,
 		 validation_coord_loss,
 		 validation_object_loss,
@@ -191,48 +178,48 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 												 batch_validation_image,
 												 batch_validation_bbox,
 												 batch_validation_labels)
-       
+	   
 		total_validation_total_loss = total_validation_total_loss + validation_total_loss
 		total_validation_coord_loss = total_validation_coord_loss + validation_coord_loss
 		total_validation_object_loss = total_validation_object_loss + validation_object_loss
 		total_validation_noobject_loss = total_validation_noobject_loss + validation_noobject_loss
 		total_validation_class_loss = total_validation_class_loss + validation_class_loss
-      
-    # save validation tensorboard log
+	  
+	# save validation tensorboard log
 	with validation_summary_writer.as_default():
 		tf.summary.scalar('total_validation_total_loss', total_validation_total_loss, step=int(ckpt.step))
 		tf.summary.scalar('total_validation_coord_loss', total_validation_coord_loss, step=int(ckpt.step))
 		tf.summary.scalar('total_validation_object_loss ', total_validation_object_loss, step=int(ckpt.step))
 		tf.summary.scalar('total_validation_noobject_loss ', total_validation_noobject_loss, step=int(ckpt.step))
 		tf.summary.scalar('total_validation_class_loss ', total_validation_class_loss, step=int(ckpt.step))
-      
+	  
 	# save validation test image
 	for validation_image_index in range(num_visualize_image):
 		random_idx = random.randint(0, batch_validation_image.shape[0] - 1)
 		# resize된 YOLO 원본 input image
 		image, labels, object_num = process_each_ground_truth(batch_validation_image[random_idx],
 															  batch_validation_bbox[random_idx],
-                                                              batch_validation_labels[random_idx],
+															  batch_validation_labels[random_idx],
 															  input_width, input_height)
-    
+	
 		drawing_image = image
   
 		image = tf.expand_dims(image, axis=0)  # make dummy dimasion
 		predict = model(image)
 		predict = tf.reshape(predict,
 				 [tf.shape(predict)[0], cell_size, cell_size, num_classes + 5 * boxes_per_cell])
-    
-        # parse prediction
+	
+		# parse prediction
 		predict_boxes = predict[0, :, :, num_classes + boxes_per_cell:]
 		predict_boxes = tf.reshape(predict_boxes, [cell_size, cell_size, boxes_per_cell, 4])
-    
+	
 		confidence_boxes = predict[0, :, :, num_classes:num_classes + boxes_per_cell]
 		confidence_boxes = tf.reshape(confidence_boxes, [cell_size, cell_size, boxes_per_cell, 1])
-       
+	   
 		# Non-maximum suppression
 		class_prediction = predict[0, :, :, 0:num_classes]
 		class_prediction = tf.argmax(class_prediction, axis=2)
-          
+		  
 		# make prediction bounding box list
 		bounding_box_info_list = []
 		for i in range(cell_size):
@@ -242,8 +229,8 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 					pred_ycenter = predict_boxes[i][j][k][1]
 					pred_box_w = tf.minimum(input_width * 1.0, tf.maximum(0.0, predict_boxes[i][j][k][2]))
 					pred_box_h = tf.minimum(input_height * 1.0, tf.maximum(0.0, predict_boxes[i][j][k][3]))
-                   
-                    
+				   
+					
 					pred_class_name = cat_label_dict[class_prediction[i][j].numpy()]                                                       
 					pred_confidence = confidence_boxes[i][j][k].numpy()[0]
 					# for문이 끝나면 bounding_box_info_list에는 7(cell_size) * 7(cell_size) * 2(boxes_per_cell) = 98 개의 bounding box의 information이 들어있다.
@@ -254,8 +241,8 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 																				   pred_box_h,
 																				   pred_class_name,
 																				   pred_confidence))
-       
-        #make ground truth bounding box list
+	   
+		#make ground truth bounding box list
 		ground_truth_bounding_box_info_list = []
 		for each_object_num in range(object_num):
 			labels = np.array(labels)
@@ -266,13 +253,13 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 			box_w = label[2]
 			box_h = label[3]
 			class_label = label[4]
-          
+		  
 			# label 7 : cat
 			# add ground-turth bounding box dict list
 			if class_label == 7:     
 				ground_truth_bounding_box_info_list.append(
 					yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, 'cat', 1.0))
-        
+		
 		ground_truth_drawing_image = drawing_image.copy()
 		# draw ground-truth image
 		# window에 정답값의 bounding box와 그에 따른 information을 draw
@@ -286,7 +273,7 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 				ground_truth_bounding_box_info['class_name'],
 				ground_truth_bounding_box_info['confidence'],
 				color_list[cat_class_to_label_dict[ground_truth_bounding_box_info['class_name']]])
-         
+		 
 		# find one max confidence bounding box
 		# Non-maximum suppression을 사용하지 않고, 약식으로 진행
 		max_confidence_bounding_box = find_max_confidence_bounding_box(bounding_box_info_list)
@@ -303,8 +290,8 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 			max_confidence_bounding_box['class_name'],
 			max_confidence_bounding_box['confidence'],
 			color_list[cat_class_to_label_dict[max_confidence_bounding_box['class_name']]])
-     
-        
+	 
+		
 
 		# left : ground-truth, right : prediction
 		drawing_image = np.concatenate((ground_truth_drawing_image, drawing_image), axis=1)
@@ -345,7 +332,7 @@ def main(_):
 	ckpt, ckpt_manager, YOLOv1_model = set_checkpoint_manager(input_height,
 						   									  input_width,
 															  cell_size,
-				    	   									  boxes_per_cell,
+						   									  boxes_per_cell,
 															  num_classes,
 															  checkpoint_path)
 
@@ -362,20 +349,14 @@ def main(_):
 			batch_labels = tf.squeeze(batch_labels, axis=1)
 
 			# run optimization and compute loss
-			loss_dict = train_step(optimizer,
-									  YOLOv1_model,
-									  batch_image,
-									  batch_bbox,
-									  batch_labels,
-									  )
+			train_step(optimizer, YOLOv1_model,
+					   batch_image, batch_bbox, batch_labels)
 
 			# print log
-			print("Epoch: %d, Iter: %d/%d, Loss: %f" % ((epoch+1), (iter+1), num_batch, total_loss.numpy()))
+			print(f"Epoch: {epoch+1}, Iter: {iter+1}, Loss: {loss_dict['total_loss'].numpy()}")
 
 			# save tensorboard log
-			save_tensorboard_log(train_summary_writer, optimizer,
-								loss_dict,
-								ckpt)
+			save_tensorboard_log(train_summary_writer, optimizer, ckpt)
 
 			# save checkpoint
 			save_checkpoint(ckpt,ckpt_manager, FLAGS.save_checkpoint_steps)
@@ -390,4 +371,4 @@ def main(_):
 
 
 if __name__ == '__main__':  # 해당 code가 쓰여진 file이 entry point면
-    app.run(main) # main함수 실행
+	app.run(main) # main함수 실행
