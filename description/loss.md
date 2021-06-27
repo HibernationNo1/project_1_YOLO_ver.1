@@ -14,6 +14,12 @@ YOLO에서 best predicted bounding box 선정 기준은 모든 predicted boundin
 
 
 
+**define function**
+
+- [yolo_loss](#yolo_loss)
+
+
+
 ## Sum-Squared Error
 
 - Square을 사용하는 이유: 
