@@ -1,5 +1,4 @@
 import tensorflow as tf
-import os
 import numpy as np
 import random
 
@@ -10,7 +9,7 @@ from tensorflow.keras.optimizers import schedules
 from tensorflow.keras.optimizers import Adam
 
 
-from utils import generate_color, dir_setting, save_checkpoint
+from utils import generate_color, dir_setting, save_checkpoint, set_checkpoint_manager
 from dataset import load_pascal_voc_dataset
 from loss import yolo_loss
 from dataset import process_each_ground_truth
@@ -18,7 +17,7 @@ from utils import (draw_bounding_box_and_label_info,
 				   find_max_confidence_bounding_box, 
 				   yolo_format_to_bounding_box_dict)
 
-#flags instance로 hyper parameters setting
+# flags instance로 hyper parameters setting
 flags.DEFINE_string('checkpoint_path', default='saved_model', help='path to a directory to save model checkpoints during training')
 flags.DEFINE_integer('save_checkpoint_steps', default=50, help='period at which checkpoints are saved (defaults to every 50 steps)')
 flags.DEFINE_string('tensorboard_log_path', default='tensorboard_log', help='path to a directory to save tensorboard log')
@@ -63,30 +62,77 @@ class_scale = 0.1  	# original paper : 1
 object_scale = 1	# original paper : None
 noobject_scale = 0.5	# original paper : None
 
-loss_dict = dict()  # loss를 보관할 dict
-loss_dict['total_loss'] = 0.0
-loss_dict['coord_loss'] = 0.0
-loss_dict['object_loss'] = 0.0 
-loss_dict['noobject_loss'] = 0.0 
-loss_dict['class_loss'] = 0.0 
+
+def calculate_loss(model, batch_image, batch_bbox, batch_labels):
+	total_loss = 0.0
+	coord_loss = 0.0
+	object_loss = 0.0
+	noobject_loss = 0.0
+	class_loss = 0.0
+	for batch_index in range(batch_image.shape[0]): # 전체 batch에 대해서 1개씩 반복
+		image, labels, object_num = process_each_ground_truth(batch_image[batch_index],
+														   	  batch_bbox[batch_index],
+														  	  batch_labels[batch_index],
+														  	  input_width, input_height)
+	
+		image = tf.expand_dims(image, axis=0)
+
+		predict = model(image) # 여기서 predict의 shape은 flatten vector 형태
+		# flatten vector -> cell_size x cell_size x (num_classes + 5 * boxes_per_cell)
+		predict = tf.reshape(predict, 
+					[tf.shape(predict)[0], cell_size, cell_size, num_classes + 5 * boxes_per_cell])
+
+		for object_num_index in range(object_num): # 실제 object개수만큼 for루프
+            # 각 return값은 1개의 image에 대한 여러 loss 값임
+			(each_object_total_loss, 
+			 each_object_coord_loss, 
+			 each_object_object_loss, 
+			 each_object_noobject_loss, 
+			 each_object_class_loss) = yolo_loss(predict[0],
+								   				 labels,
+								   				 object_num_index,
+								   				 num_classes,
+								   				 boxes_per_cell,
+								   				 cell_size,
+								   				 input_width,
+												 input_height,
+								   				 coord_scale,
+								   				 object_scale,
+								   				 noobject_scale,
+								   				 class_scale )
+			
+            # 각각 전체의 batch에 대해서 loss 합산
+			total_loss = total_loss+ each_object_total_loss
+			coord_loss = coord_loss + each_object_coord_loss
+			object_loss = object_loss + each_object_object_loss
+			noobject_loss = noobject_loss + each_object_noobject_loss
+			class_loss = class_loss + each_object_class_loss
+	return total_loss, coord_loss, object_loss, noobject_loss, class_loss
 
 
 def train_step(optimizer, model, batch_image, batch_bbox, batch_labels): 
 	with tf.GradientTape() as tape:
-		calculate_loss(model, batch_image, batch_bbox, batch_labels )
+		(total_loss,
+		 coord_loss,
+		 object_loss,
+		 noobject_loss,
+		 class_loss) = calculate_loss(model, batch_image, batch_bbox, batch_labels )
 	
-	gradients = tape.gradient(loss_dict['total_loss'], model.trainable_variables)
+	gradients = tape.gradient(total_loss, model.trainable_variables)
 	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
+	return total_loss, coord_loss, object_loss, noobject_loss, class_loss
+
     
-def save_tensorboard_log(train_summary_writer, optimizer, ckpt):
+def save_tensorboard_log(train_summary_writer, optimizer, ckpt, 
+						 total_loss, coord_loss, object_loss, noobject_loss, class_loss):
 	with train_summary_writer.as_default():
 		tf.summary.scalar('learning_rate ', optimizer.lr(ckpt.step).numpy(), step=int(ckpt.step))
-		tf.summary.scalar('total_loss',	loss_dict['total_loss'], step=int(ckpt.step))
-		tf.summary.scalar('coord_loss', loss_dict['coord_loss'], step=int(ckpt.step))
-		tf.summary.scalar('object_loss ', loss_dict['object_loss'], step=int(ckpt.step))
-		tf.summary.scalar('noobject_loss ', loss_dict['noobject_loss'], step=int(ckpt.step))
-		tf.summary.scalar('class_loss ', loss_dict['class_loss'], step=int(ckpt.step)) 
+		tf.summary.scalar('total_loss',	total_loss, step=int(ckpt.step))
+		tf.summary.scalar('coord_loss', coord_loss, step=int(ckpt.step))
+		tf.summary.scalar('object_loss ', object_loss, step=int(ckpt.step))
+		tf.summary.scalar('noobject_loss ', noobject_loss, step=int(ckpt.step))
+		tf.summary.scalar('class_loss ', class_loss, step=int(ckpt.step)) 
         
     
 def save_validation_result(model, ckpt, validation_summary_writer, num_visualize_image):
@@ -274,14 +320,19 @@ def main(_):
 			batch_labels = tf.squeeze(batch_labels, axis=1)
 
 			# run optimization and compute loss
-			train_step(optimizer, YOLOv1_model,
+			(total_loss, 
+			 coord_loss, 
+			 object_loss, 
+			 noobject_loss, 
+			 class_loss) = train_step(optimizer, YOLOv1_model,
 					   batch_image, batch_bbox, batch_labels)
 
 			# print log
-			print(f"Epoch: {epoch+1}, Iter: {iter+1}, Loss: {loss_dict['total_loss'].numpy()}")
+			print(f"Epoch: {epoch+1}, Iter: {(iter+1)}/{num_batch}, Loss: {total_loss.numpy()}")
 
 			# save tensorboard log
-			save_tensorboard_log(train_summary_writer, optimizer, ckpt)
+			save_tensorboard_log(train_summary_writer, optimizer, ckpt,
+								 total_loss, coord_loss, object_loss, noobject_loss, class_loss)
 
 			# save checkpoint
 			save_checkpoint(ckpt,ckpt_manager, FLAGS.save_checkpoint_steps)
@@ -291,7 +342,7 @@ def main(_):
             # occasionally check validation data and save tensorboard log
 			if iter % FLAGS.validation_steps == 0:
 				save_validation_result(YOLOv1_model, ckpt, validation_summary_writer, FLAGS.num_visualize_image)
-                
-    
+
+
 if __name__ == '__main__':  
 	app.run(main) # main함수 실행
