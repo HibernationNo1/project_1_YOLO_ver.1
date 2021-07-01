@@ -1,5 +1,9 @@
 # dataset.py
 
+data pre-processing을 진행하고 batch단위로 묶어낸다.
+
+
+
 using data set : **PASCAL VOC 2007, 2012**
 
 Reference : http://host.robots.ox.ac.uk/pascal/VOC/voc2007/  ,  http://host.robots.ox.ac.uk/pascal/VOC/voc2012/

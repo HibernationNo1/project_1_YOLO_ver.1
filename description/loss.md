@@ -1,4 +1,8 @@
-# loss function
+# loss function.py
+
+model의 loss function을 정의한다.
+
+
 
 ##### Intersection over Union
 

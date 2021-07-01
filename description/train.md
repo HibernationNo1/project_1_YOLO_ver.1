@@ -1,6 +1,8 @@
 # train.py
 
-training을 진행하며, 반복이 특정 횟수에 도달하면 validation을 수행한다.
+model class 를 instance로 선언하고 For-loop를 통해 gradient descent를 수행하며 training을 진행한다.
+
+반복이 특정 횟수에 도달하면 validation을 수행한다.
 
 모든 training log와 validation log, label과 prediction image간의 비교를 tensorboard에 저장한다.
 
@@ -815,5 +817,4 @@ def main(_):
 if __name__ == '__main__':  
 	app.run(main) # main함수 실행
 ```
-
 
