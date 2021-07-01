@@ -1,5 +1,9 @@
 # dataset.py
 
+data pre-processing을 진행하고 batch단위로 묶어낸다.
+
+
+
 using data set : **PASCAL VOC 2007, 2012**
 
 Reference : http://host.robots.ox.ac.uk/pascal/VOC/voc2007/  ,  http://host.robots.ox.ac.uk/pascal/VOC/voc2012/
@@ -18,17 +22,18 @@ import tensorflow_datasets as tfds
 **define function**
 
 - [load_pascal_voc_dataset](#load_pascal_voc_dataset)
+- [load_pascal_voc_dataset_for_test](#load_pascal_voc_dataset_for_test)
 - [predicate](#predicate)
 - [process_each_ground_truth](#process_each_ground_truth)
 - [zero_trim_ndarray](#zero_trim_ndarray)
 - [bounds_per_dimension](#bounds_per_dimension)
-- [Full code](#Full code)
+- [Full code](#Full-code)
 
 
 
 ## load_pascal_voc_dataset
 
-PASCAL VOC 2007, 2012 dataset을 load하고 preprocessing을 진행
+training에 사용할 dataset으로 PASCAL VOC 2007, 2012 dataset을 load하고 preprocessing을 진행
 
 
 
@@ -97,6 +102,28 @@ def load_pascal_voc_dataset(batch_size):
     
     return train_data, validation_data
 
+```
+
+
+
+## load_pascal_voc_dataset_for_test
+
+test에 사용할 dataset으로 voc2007 train data을 가져온다.
+
+
+
+voc/2007_test_data + voc/2012_train_data + voc/2012_validation_data 로 구성했기 때문에 test dataset은 voc2007의 train data를 사용한다.
+
+
+
+```python
+def load_pascal_voc_dataset_for_test(batch_size):
+	voc2007_train_split_data = tfds.load("voc/2007", split=tfds.Split.TRAIN, batch_size=1)
+	test_data = voc2007_train_split_data
+
+	test_data = test_data.filter(predicate)
+	test_data = test_data.padded_batch(batch_size)
+	return test_data
 ```
 
 
@@ -290,6 +317,14 @@ def load_pascal_voc_dataset(batch_size):
     
     return train_data, validation_data
 
+def load_pascal_voc_dataset_for_test(batch_size):
+	voc2007_train_split_data = tfds.load("voc/2007", split=tfds.Split.TRAIN, batch_size=1)
+	test_data = voc2007_train_split_data
+
+	test_data = test_data.filter(predicate)
+	test_data = test_data.padded_batch(batch_size)
+	return test_data
+
 
 def bounds_per_dimension(ndarray):
 	return map(
@@ -350,5 +385,4 @@ def process_each_ground_truth(original_image,
 
     return [image.numpy(), labels, object_num]
 ```
-
 
