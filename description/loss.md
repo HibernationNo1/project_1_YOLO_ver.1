@@ -1,4 +1,8 @@
-# loss function
+# loss function.py
+
+model의 loss function을 정의한다.
+
+
 
 ##### Intersection over Union
 
@@ -11,6 +15,12 @@ IoU = 교집합 영역 넓이 / 합집합 영역 넓이
 ##### predicted bounding box
 
 YOLO에서 best predicted bounding box 선정 기준은 모든 predicted bounding box 중에서 가장 큰 IOU 값을 가진 bounding box이다.
+
+
+
+**define function**
+
+- [yolo_loss](#yolo_loss)
 
 
 
