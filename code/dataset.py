@@ -33,6 +33,15 @@ def load_pascal_voc_dataset(batch_size):
     return train_data, validation_data
 
 
+def load_pascal_voc_dataset_for_test(batch_size):
+	voc2007_train_split_data = tfds.load("voc/2007", split=tfds.Split.TRAIN, batch_size=1)
+	test_data = voc2007_train_split_data
+
+	test_data = test_data.filter(predicate)
+	test_data = test_data.padded_batch(batch_size)
+	return test_data
+
+
 def bounds_per_dimension(ndarray):
 	return map(
     	lambda e: range(e.min(), e.max() + 1),
