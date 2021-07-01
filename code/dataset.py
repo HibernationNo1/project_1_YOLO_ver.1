@@ -12,9 +12,10 @@ def predicate(x, allowed_labels=tf.constant([7.0])):
     return tf.greater(reduced, tf.constant(0.))  # label이 7인 element의 개수가 1개 이상일 때 True
 
 # load pascal voc2007/voc2012 dataset using tfds
+
 def load_pascal_voc_dataset(batch_size):  
     # set dataset for training
-    voc2007_test_split_data = tfds.load("voc/2007", split=tfds.Split.TEST, batch_size=1)
+	voc2007_test_split_data = tfds.load("voc/2007", split=tfds.Split.TEST, batch_size=1)
 	voc2012_train_split_data = tfds.load("voc/2012", split=tfds.Split.TRAIN, batch_size=1)
 	voc2012_validation_split_data = tfds.load("voc/2012", split=tfds.Split.VALIDATION, batch_size=1)
 
@@ -24,13 +25,13 @@ def load_pascal_voc_dataset(batch_size):
 	voc2007_validation_split_data = tfds.load("voc/2007", split=tfds.Split.VALIDATION, batch_size=1)
 	validation_data = voc2007_validation_split_data
     
-    train_data = train_data.filter(predicate) # 7 label 만 정제해서 할당 
-    train_data = train_data.padded_batch(batch_size) # train_data가 filter(predicate) 에 의해 가변적인 크기를 가지고 있으므로 batch 대신 padded_batch 사용
+	train_data = train_data.filter(predicate) # 7 label 만 정제해서 할당 
+	train_data = train_data.padded_batch(batch_size) # train_data가 filter(predicate) 에 의해 가변적인 크기를 가지고 있으므로 batch 대신 padded_batch 사용
 
 	validation_data = validation_data.filter(predicate)
 	validation_data = validation_data.padded_batch(batch_size)
     
-    return train_data, validation_data
+	return train_data, validation_data
 
 
 def load_pascal_voc_dataset_for_test(batch_size):

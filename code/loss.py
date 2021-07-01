@@ -75,6 +75,6 @@ def yolo_loss(predict,
 	class_loss = tf.nn.l2_loss(object_exists_cell * (pred_P - P)) * class_scale
 
 	# sum every loss
-        total_loss = coord_loss + object_loss + noobject_loss + class_loss
+	total_loss = coord_loss + object_loss + noobject_loss + class_loss
         
 	return total_loss, coord_loss, object_loss, noobject_loss, class_loss
