@@ -119,6 +119,8 @@ if __name__ == '__main__':
 
 - line 54 : 해당 code가 쓰여진 file이 entry point이기 때문에 main함수 실행
 
+  해당 code가 쓰여지면 main function이 Flags를 포함 한 상태로 호출되게 된다.
+  
   **실제로 해당 if문은 train.py의 마지막에 사용되어야 한다.**
 
 
