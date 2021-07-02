@@ -78,14 +78,15 @@ training이 unintentionally하게 중단되었거나, data의 update로 인해 m
                  tmp = str(input())
                  os.system('clear')  # cls in window 
  
-     # pass if the path exist. or not, create directory on path
-     if not os.path.isdir(model_path):
-         os.makedirs(model_path, exist_ok=True)
-         os.mkdir(checkpoint_path)
- 
-         # set tensorboard log
-         train_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/train')
-         validation_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/validation')  
+	# set tensorboard log
+	train_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/train')
+	validation_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/validation')  
+
+	# pass if the path exist. or not, create directory on path
+	if not os.path.isdir(model_path):
+		os.makedirs(model_path, exist_ok=True)
+		os.mkdir(checkpoint_path)
+
  
      return checkpoint_path, train_summary_writer, validation_summary_writer
 ```
@@ -453,14 +454,14 @@ Each color is determined randomly
                  tmp = str(input())
                  os.system('clear')  # cls in window 
  
-     # pass if the path exist. or not, create directory on path
-     if not os.path.isdir(model_path):
-         os.makedirs(model_path, exist_ok=True)
-         os.mkdir(checkpoint_path)
- 
-         # set tensorboard log
-         train_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/train')
-         validation_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/validation')  
+	# set tensorboard log
+	train_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/train')
+	validation_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/validation')  
+
+	# pass if the path exist. or not, create directory on path
+	if not os.path.isdir(model_path):
+		os.makedirs(model_path, exist_ok=True)
+		os.mkdir(checkpoint_path)
  
      return checkpoint_path, train_summary_writer, validation_summary_writer
  
@@ -594,3 +595,4 @@ Each color is determined randomly
  
      return colors
 ```
+
