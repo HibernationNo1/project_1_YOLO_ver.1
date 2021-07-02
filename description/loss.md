@@ -50,7 +50,14 @@ Total loss = coordinate loss + object loss + noobject loss + class loss
 
 **수식**
 
-𝟙𝟙𝟙𝟙𝟙
+$$
+\lambda_{coord} \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{obj}_{ij}\left[ (x_i - \hat{x}_i)^2 + (y_i - \hat{y}_i)^2 \right] \\
++ \lambda_{coord} \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{obj}_{ij}\left[ (\sqrt{w_i} - \sqrt{\hat{w}_i})^2 + (\sqrt{h_i} - \sqrt{\hat{h}_i})^2 \right] \\ 
++ \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{obj}_{ij}(C_i - \hat{C_i})^2\\ 
++ \lambda_{noobj} \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{noobj}_{ij}(C_i - \hat{C_i})^2\\ 
++ \sum^{S^2}_{i = 0}𝟙^{obj}_{i}\sum_{c \in classes} (p_i(c) - \hat{p_i}(c))^2
+$$
+
 
 > - **x** : object의 x좌표(grid 기준)
 >
@@ -70,29 +77,42 @@ Total loss = coordinate loss + object loss + noobject loss + class loss
 >
 >   각 람다의 값은 중요도를 의미한다.
 >
->   
+> $$
+> \lambda_{coord} = 5, \ \ \ \ \ \lambda_{noodj} = 0.5.
+> $$
+>
+> 
 >
 > - **indicator function**:
 >
 >   특정 grid cell 중에서 믿을만한 bounding box만 살리고 나머진 버리는 용도
 >
->   - 𝟙
+>   - $$
+>     𝟙^{obj}_{ij}
+>     $$
 >
 >     i 번째 grid cell에 object가 있고, 해당 cell 안에 j번째 detector가 있을 때에만 1을 return. 그 외에는 0
 >
 >     > object가 있는 cell에서 j번째 detector가 있을 때에만 1
 >
->   - 𝟙
->
+>   - $$
+>     𝟙^{noobj}_{ij}
+>     $$
+>   
 >     i 번째 grid cell에 object가 없고, 해당 cell 안에 j번째 detector가 있을 때에만 1을 return. 그 외에는 0
->
+>     
 >     > object가 없는 cell에서 j번째 detector가 있을 때에만 1
 
 
 
 #### coordinate loss
 
-𝟙𝟙
+$$
+\lambda_{coord} \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{obj}_{ij}\left[ (x_i - \hat{x}_i)^2 + (y_i - \hat{y}_i)^2 \right] \\
++ \lambda_{coord} \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{obj}_{ij}\left[ (\sqrt{w_i} - \sqrt{\hat{w}_i})^2 + (\sqrt{h_i} - \sqrt{\hat{h}_i})^2 \right]
+$$
+
+
 
 
 
@@ -100,11 +120,18 @@ Total loss = coordinate loss + object loss + noobject loss + class loss
 
 본 code에서는 더욱 자유로운 값의 결정을 위해 coefficient for object loss를 추가
 
-𝟙
+$$
+\lambda_{object} \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{obj}_{ij}(C_i - \hat{C_i})^2
+$$
+
 
 #### noobject loss
 
-𝟙
+$$
+\lambda_{noobj} \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{noobj}_{ij}(C_i - \hat{C_i})^2
+$$
+
+
 
 
 
@@ -112,8 +139,9 @@ Total loss = coordinate loss + object loss + noobject loss + class loss
 
 본 code에서는 더욱 자유로운 값의 결정을 위해 coefficient for class loss를 추가
 
-𝟙
-
+$$
+\lambda_{class}  \sum^{S^2}_{i = 0}𝟙^{obj}_{i}\sum_{c \in classes} (p_i(c) - \hat{p_i}(c))^2
+$$
 
 
 
@@ -126,11 +154,13 @@ Total loss = coordinate loss + object loss + noobject loss + class loss
 
 **import** 
 
-```
+```python
  import tensorflow as tf
  import numpy as np
  from utils import iou
 ```
+
+
 
 
 
@@ -170,7 +200,7 @@ Total loss = coordinate loss + object loss + noobject loss + class loss
 
 
 
-```
+```python
  import tensorflow as tf
  import numpy as np
  from utils import iou
@@ -265,6 +295,8 @@ Total loss = coordinate loss + object loss + noobject loss + class loss
 
 
 
+
+
 **detail**
 
 - line 71  **coord_loss** :   
@@ -277,7 +309,7 @@ Total loss = coordinate loss + object loss + noobject loss + class loss
 
   `input_width` : image를 기준으로 normalize로 표현
 
-- line 71  **noobject_loss** 
+- line 82  **noobject_loss** 
 
   `(1 - object_exists_cell)` : object가 없는 셀에만 1의 값이 남는다.
 
