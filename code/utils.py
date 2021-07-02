@@ -39,14 +39,15 @@ def dir_setting(dir_name,
 				tmp = str(input())
 				os.system('clear')  # cls in window 
 
+	# set tensorboard log
+	train_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/train')
+	validation_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/validation')  
+
 	# pass if the path exist. or not, create directory on path
 	if not os.path.isdir(model_path):
 		os.makedirs(model_path, exist_ok=True)
 		os.mkdir(checkpoint_path)
 
-		# set tensorboard log
-		train_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/train')
-		validation_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/validation')  
 
 	return checkpoint_path, train_summary_writer, validation_summary_writer
 
