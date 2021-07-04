@@ -96,13 +96,13 @@ flags.DEFINE_integer('lr_decay_steps', default=200, help='number of steps after 
 
 그래프를 통해 learning rate의 decay가 잘 적용되었는지 확인해보자
 
-이미지
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/learning_Rate.jpg?raw=true)
 
 학습은 총 1k step까지 진행이 되었고, 매 200번째 step마다 0.75의 값이 learning rate에 곱해져 적용되었음을 확인할 수 있다.
 
 
 
-## Image
+## Evaluation with validation, test image
 
 The right is the label image and the left is the predicted image by model
 
@@ -111,4 +111,24 @@ The right is the label image and the left is the predicted image by model
 ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/vaildation_image_0.jpg?raw=true)
 
 ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/vaildation_image_1.jpg?raw=true)
+
+
+
+**test image**
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/0_result.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/1_result.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/2_result.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/9_result.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/6_result.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/11_result.png?raw=true)
+
+큰 object들에 대해서는 detection이 잘 이루어지는것으로 보이지만, 작은 object에 대해서는 정확도가 낮은 것으로 판단된다.
+
+또한 confidence가 가장 높은 boundingbox 1개만 표현하도록 했기 때문에 2개의 object에 대해서는 1개의 predictor만 표현되는 것을 확인할 수 있다.
 
