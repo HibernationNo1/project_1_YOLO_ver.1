@@ -1,20 +1,29 @@
 # READ ME
 
-## Abstract
-
-this project is a YOLO v.1 implementation project comleted by referring to online cource '[Inflearn](https://www.inflearn.com/)', which thesis implementation cource. 
+This project is a YOLO v.1 implementation project comleted by referring to online cource '[Inflearn](https://www.inflearn.com/)', which thesis implementation cource. 
 
 The code structure and some functions have been changed for personal convenience.
 
 
 
-Reference : 
+Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%EB%9F%AC%EB%8B%9D-%EB%85%BC%EB%AC%B8%EA%B5%AC%ED%98%84/dashboard
+
+
+
+**Contents**
+
+- [Code](#Code)
+  - [Utilities](#Utilities)
+  - [model.py](#model.py)
+  - [train.py](#train.py)
+  - [evaluate.py](#evaluate.py)
+- [Result](#Result)
+- [Getting Started](#Getting Started)
+- [version](#version)
 
 
 
 ## Code
-
-
 
 ### Utilities
 
@@ -34,7 +43,7 @@ Reference :
 
 ### train.py
 
-[train.py](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/train.md) : `main(_)` function is included in code
+[train.py](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/train.md) : 
 
 - Create instance of model class and do gradient descent through `for-loop` for parameter updata
 - When the iteration reaches a certain number of times, a validation is performed.
@@ -54,23 +63,53 @@ Reference :
 
 ## Result
 
+**detail analysis** : [here](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/Analysis.md)
+
+Training will continue as 10 epochs progress, Validation was performed every 50 steps.
+
+I use tensorboard to show valuse
+
+**train total_loss**
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/total_loss.jpg?raw=true)
 
 
 
+**validation total_loss**
 
-## Conclusion
-
-
-
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/total_validation_total_loss.jpg?raw=true)
 
 
-### Getting Started
+
+**evaluation with test data**
+
+The right is the label image and the left is the predicted image by model
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/5_result.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/9_result.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/10_result.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/11_result.png?raw=true)
+
+
+
+It seems that detection works well for large objects, but have low accuracy for small objects.
+
+It detect only one object if two or more objects exist in image because it made to represent only the one bounding box with the highest confidence.
+
+
+
+## Getting Started
 
 #### training
 
 ```
 $ code\train.py
 ```
+
+> `main(_)` function is included in code
 
 
 
@@ -80,22 +119,20 @@ $ code\train.py
 $ code\evaluate.py
 ```
 
+> `main(_)` function is included in code
 
 
-### version
+
+## version
 
 | name                | version |
 | ------------------- | ------- |
 | python              | 3.8.5   |
 |                     |         |
 | **package name**    |         |
-| numpy               |         |
-| tensorflow          |         |
-| tensorflow_datasets |         |
-| cv2                 |         |
-| colorsys            |         |
-| random              |         |
-| sys                 |         |
-| os                  |         |
-| shutil              |         |
+| numpy               | 1.19.5  |
+| tensorflow          | 2.5.0   |
+| tensorflow_datasets | 4.3.0   |
+| cv2                 | 4,5,2   |
+| sys                 | 3.8.8   |
 
