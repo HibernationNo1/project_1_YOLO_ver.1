@@ -29,7 +29,7 @@ from utils import (draw_bounding_box_and_label_info,
 				   yolo_format_to_bounding_box_dict)
 
 
-flags.DEFINE_string('checkpoint_path', default='saved_model', help='path to a directory to restore checkpoint file')
+fflags.DEFINE_string('cp_path', default='saved_model', help='path to a directory to restore checkpoint file')
 flags.DEFINE_string('test_dir', default='test_result', help='directory which test prediction result saved')
 
 FLAGS = flags.FLAGS
@@ -56,7 +56,7 @@ test_data = load_pascal_voc_dataset_for_test(batch_size)
 def main(_):
 	# check if checkpoint path exists
 	from train import dir_name
-	checkpoint_path = os.mkdir(os.path.join(os.getcwd(), dir_name , FLAGS.checkpoint_path))
+	checkpoint_path = os.path.join(os.getcwd(), dir_name , FLAGS.cp_path)
 	if not os.path.exists(checkpoint_path):
 		print('checkpoint file is not exists!')
 		exit()
@@ -189,5 +189,4 @@ if __name__ == '__main__':
 큰 object들에 대해서는 detection이 잘 이루어지는것으로 보이지만, 작은 object에 대해서는 정확도가 낮은 것으로 판단된다.
 
 또한 confidence가 가장 높은 boundingbox 1개만 표현하도록 했기 때문에 2개의 object에 대해서는 1개의 predictor만 표현되는 것을 확인할 수 있다.
-
 

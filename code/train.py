@@ -22,10 +22,10 @@ flags.DEFINE_string('checkpoint_path', default='saved_model', help='path to a di
 flags.DEFINE_integer('save_checkpoint_steps', default=50, help='period at which checkpoints are saved (defaults to every 50 steps)')
 flags.DEFINE_string('tensorboard_log_path', default='tensorboard_log', help='path to a directory to save tensorboard log')
 flags.DEFINE_integer('validation_steps', default=50, help='period at which test prediction result and save image')  # 몇 번의 step마다 validation data로 test를 할지 결정
-flags.DEFINE_integer('num_epochs', default=30, help='training epochs') # original paper : 135 epoch
+flags.DEFINE_integer('num_epochs', default=10, help='training epochs') # original paper : 135 epoch
 flags.DEFINE_float('init_learning_rate', default=0.0001, help='initial learning rate') # original paper : 0.001 (1epoch) -> 0.01 (75epoch) -> 0.001 (30epoch) -> 0.0001 (30epoch)
-flags.DEFINE_float('lr_decay_rate', default=0.5, help='decay rate for the learning rate')
-flags.DEFINE_integer('lr_decay_steps', default=2000, help='number of steps after which the learning rate is decayed by decay rate') # 2000번 마다 init_learning_rate * lr_decay_rate 을 실행
+flags.DEFINE_float('lr_decay_rate', default=0.75, help='decay rate for the learning rate')
+flags.DEFINE_integer('lr_decay_steps', default=200, help='number of steps after which the learning rate is decayed by decay rate') # 2000번 마다 init_learning_rate * lr_decay_rate 을 실행
 # 2000 step : init_learning_rate = 0.00005, 4000 step : init_learning_rate = 0.000025
 flags.DEFINE_integer('num_visualize_image', default=8, help='number of visualize image for validation')
 # 중간중간 validation을 할 때마다 몇 개의 batch size로 visualization을 할지 결정하는 변수
@@ -39,7 +39,7 @@ cat_label_dict = {
 }
 cat_class_to_label_dict = {v: k for k, v in cat_label_dict.items()}
 
-dir_name = 'train1'
+dir_name = 'train2'
 CONTINUE_LEARNING = False  # 이전에 했던 training을 다시 시작할 때 False, 계속 이어서 할 땐 True 
 
 # set configuration value
@@ -160,7 +160,6 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 												 batch_validation_image,
 												 batch_validation_bbox,
 												 batch_validation_labels)
-	   
 		total_validation_total_loss = total_validation_total_loss + validation_total_loss
 		total_validation_coord_loss = total_validation_coord_loss + validation_coord_loss
 		total_validation_object_loss = total_validation_object_loss + validation_object_loss
@@ -169,6 +168,13 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 	  
 	# save validation tensorboard log
 	with validation_summary_writer.as_default():
+
+		print(f'total_validation_total_loss : {total_validation_total_loss}')
+		print(f'total_validation_coord_loss : {total_validation_coord_loss}')
+		print(f'total_validation_object_loss : {total_validation_object_loss}')
+		print(f'total_validation_noobject_loss : {total_validation_noobject_loss}')
+		print(f'total_validation_class_loss : {total_validation_class_loss}')
+
 		tf.summary.scalar('total_validation_total_loss', total_validation_total_loss, step=int(ckpt.step))
 		tf.summary.scalar('total_validation_coord_loss', total_validation_coord_loss, step=int(ckpt.step))
 		tf.summary.scalar('total_validation_object_loss ', total_validation_object_loss, step=int(ckpt.step))
