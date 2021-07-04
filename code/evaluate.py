@@ -14,7 +14,7 @@ from utils import (draw_bounding_box_and_label_info,
 				   yolo_format_to_bounding_box_dict)
 
 
-flags.DEFINE_string('checkpoint_path', default='saved_model', help='path to a directory to restore checkpoint file')
+flags.DEFINE_string('cp_path', default='saved_model', help='path to a directory to restore checkpoint file')
 flags.DEFINE_string('test_dir', default='test_result', help='directory which test prediction result saved')
 
 FLAGS = flags.FLAGS
@@ -41,7 +41,7 @@ test_data = load_pascal_voc_dataset_for_test(batch_size)
 def main(_):
 	# check if checkpoint path exists
 	from train import dir_name
-	checkpoint_path = os.mkdir(os.path.join(os.getcwd(), dir_name , FLAGS.checkpoint_path))
+	checkpoint_path = os.path.join(os.getcwd(), dir_name , FLAGS.cp_path)
 	if not os.path.exists(checkpoint_path):
 		print('checkpoint file is not exists!')
 		exit()
