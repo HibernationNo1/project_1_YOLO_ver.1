@@ -6,7 +6,7 @@ This file contain some utilities function for model training.
 
 **import**
 
-```
+```python
  import cv2
  import os
  import shutil
@@ -49,7 +49,7 @@ training이 unintentionally하게 중단되었거나, data의 update로 인해 m
 
   > if `CONTINUE_LEARNING` is `True` but nothing in model directory, `CONTINUE_LEARNING` is `False`
 
-```
+```python
  def dir_setting(dir_name, 
                  CONTINUE_LEARNING, 
                  checkpoint_path, 
@@ -121,7 +121,7 @@ function for managing checkpoint
 
   
 
-```
+```python
  def set_checkpoint_manager(input_height,
                              input_width,
                              cell_size,
@@ -168,7 +168,7 @@ save model parameters when step(`ckpt.step`) reach specific check point(`FLAGS.s
 
 
 
-```
+```python
  def save_checkpoint(ckpt, ckpt_manager, save_checkpoint_steps):
      # save checkpoint
      if ckpt.step % save_checkpoint_steps == 0:
@@ -192,7 +192,7 @@ braw bounding box and show text about label information
 - `confidence` : ground truth confidence
 - `color` : instance of the function defined`generate_color`
 
-```
+```python
  def draw_bounding_box_and_label_info(frame, x_min, y_min, x_max, y_max, label, confidence, color):
      # draw rectangle
      cv2.rectangle(
@@ -261,7 +261,9 @@ find one max confidence bounding box of the entire bounding boxes
 
 
 
-```
+sorted : key를 기준으로 가장 높은 값을 가진 것을 차례로 정렬 후 반환
+
+```python
  def find_max_confidence_bounding_box(bounding_box_info_list):
      bounding_box_info_list_sorted = sorted(bounding_box_info_list,
                                              key=itemgetter('confidence'),
@@ -292,7 +294,7 @@ create dictionary of bounding box information
 - `class_prediction` : class
 - `confidence` : normalized confidence 
 
-```
+```python
  def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name, confidence):
      # the zero coordinate of image located
      bounding_box_info = dict()
@@ -338,8 +340,8 @@ IoU = 교집합 영역 넓이 / 합집합 영역 넓이
 
 
 
-```
- def iou(yolo_pred_boxes, ground_truth_boxes):
+```python
+def iou(yolo_pred_boxes, ground_truth_boxes):
  
      boxes1 = yolo_pred_boxes
      boxes2 = ground_truth_boxes
@@ -352,8 +354,8 @@ IoU = 교집합 영역 넓이 / 합집합 영역 넓이
      boxes2 = tf.cast(boxes2, tf.float32)
  
      # calculate the left up point
-     lu = tf.maximum(boxes1[:, :, :, 0:2], boxes2[0:2])
-     rd = tf.minimum(boxes1[:, :, :, 2:], boxes2[2:])
+     lu = tf.maximum(boxes1[:, :, :, 0:2], boxes2[0:2]) # 두 Bbox 중 x, y의 최대값
+     rd = tf.minimum(boxes1[:, :, :, 2:], boxes2[2:]) # 두 Bbox 중 w, h의 최소값
    
      # intersection
      intersection = rd - lu
@@ -362,7 +364,7 @@ IoU = 교집합 영역 넓이 / 합집합 영역 넓이
  
      mask = tf.cast(intersection[:, :, :, 0] > 0, tf.float32) * tf.cast(intersection[:, :, :, 1] > 0, tf.float32)
  
-     inter_square = mask * inter_square
+     inter_square = mask * inter_square # 교집합
  
      # calculate the boxs1 square and boxs2 square
      square1 = (boxes1[:, :, :, 2] - boxes1[:, :, :, 0]) * (boxes1[:, :, :, 3] - boxes1[:, :, :, 1])
@@ -391,7 +393,7 @@ Each color is determined randomly
 
 
 
-```
+```python
  def generate_color(num_classes):
      hsv_tuples = [(x / num_classes, 1., 1.)
                     for x in range(num_classes)]
@@ -412,21 +414,21 @@ Each color is determined randomly
 
 ## Full code
 
-```
- import cv2
- import os
- import shutil
- import sys
- import numpy as np
- import tensorflow as tf
- import colorsys
- from operator import itemgetter
+```python
+import cv2
+import os
+import shutil
+import sys
+import numpy as np
+import tensorflow as tf
+import colorsys
+from operator import itemgetter
  
- import os
- from model import YOLOv1
+import os
+from model import YOLOv1
  
  
- def dir_setting(dir_name, 
+def dir_setting(dir_name, 
                  CONTINUE_LEARNING, 
                  checkpoint_path, 
                  tensorboard_log_path):

@@ -18,7 +18,7 @@ Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%EB%9F%A
   - [train.py](#train.py)
   - [evaluate.py](#evaluate.py)
 - [Result](#Result)
-- [Getting Started](#Getting Started)
+- [Getting Started](#'Getting Started')
 - [version](#version)
 
 
