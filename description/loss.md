@@ -4,17 +4,19 @@ model의 loss function을 정의한다.
 
 
 
-##### Intersection over Union
+total loss = coordinate loss + object loss + noobject loss + class loss
+
+coordinate loss와 object loss는 best predicted bounding box에 대해서만 표현되기 때문에 code상에서는 모든 bounding box 중에서 가장 높은 IOU가 곱해지도록 구현했다.
+
+
+
+##### Intersection over Union(IOU)
 
 ![img](https://t1.daumcdn.net/cfile/tistory/993477505D14A25016)
 
 IoU = 교집합 영역 넓이 / 합집합 영역 넓이
 
-
-
-##### predicted bounding box
-
-YOLO에서 best predicted bounding box 선정 기준은 모든 predicted bounding box 중에서 가장 큰 IOU 값을 가진 bounding box이다.
+best predicted bounding box란 모든 predicted bounding box 중에서 가장 큰 IOU 값을 가진 bounding box이다. 
 
 
 
@@ -85,6 +87,10 @@ $$
 >
 > - **indicator function**:
 >
+>   i : i번째 grid cell (0부터 S^2까지)
+>
+>   j : j 번째 detector (0부터 Bboxs per cell)
+>   
 >   특정 grid cell 중에서 믿을만한 bounding box만 살리고 나머진 버리는 용도
 >
 >   - $$
@@ -92,7 +98,7 @@ $$
 >     $$
 >
 >     i 번째 grid cell에 object가 있고, 해당 cell 안에 j번째 detector가 있을 때에만 1을 return. 그 외에는 0
->
+>   
 >     > object가 있는 cell에서 j번째 detector가 있을 때에만 1
 >
 >   - $$
@@ -100,12 +106,17 @@ $$
 >     $$
 >   
 >     i 번째 grid cell에 object가 없고, 해당 cell 안에 j번째 detector가 있을 때에만 1을 return. 그 외에는 0
->     
+>   
 >     > object가 없는 cell에서 j번째 detector가 있을 때에만 1
 
 
 
+
+
 #### coordinate loss
+
+bounding box의 정보(x, y좌표, width, height)에 대한 loss값이다.
+
 
 $$
 \lambda_{coord} \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{obj}_{ij}\left[ (x_i - \hat{x}_i)^2 + (y_i - \hat{y}_i)^2 \right] \\
@@ -114,9 +125,19 @@ $$
 
 
 
+**indicator function**
+
+object가 있는 cell에서 2개의 detector 중 j번째 detector가 responsible이면 1
+$$
+𝟙^{obj}_{ij}
+$$
 
 
 #### object loss
+
+object가 있는 cell의 confidence loss.
+
+label confidence는 ground truth와 proposed region간의 IOU를 사용한다.
 
 본 code에서는 더욱 자유로운 값의 결정을 위해 coefficient for object loss를 추가
 
@@ -125,17 +146,29 @@ $$
 $$
 
 
+
 #### noobject loss
 
+object가 없는 cell의 confidence loss를 계산.
+
+label confidence는 ground truth와 proposed region간의 IOU를 사용하기 때문에 값이 0이다.
 $$
-\lambda_{noobj} \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{noobj}_{ij}(C_i - \hat{C_i})^2
+\lambda_{noobj} \sum^{S^2}_{i = 0}\sum^{B}_{j = 0}𝟙^{noobj}_{ij}(\hat{C_i})^2
 $$
 
+**indicator function**
+
+object가 없는 cell에서 2개의 detector 중 j번째 detector가 responsible이면 1
+$$
+𝟙^{noobj}_{ij}
+$$
 
 
 
 
 #### class loss
+
+label class와 predicted class의 probability loss를 계산
 
 본 code에서는 더욱 자유로운 값의 결정을 위해 coefficient for class loss를 추가
 
@@ -143,6 +176,12 @@ $$
 \lambda_{class}  \sum^{S^2}_{i = 0}𝟙^{obj}_{i}\sum_{c \in classes} (p_i(c) - \hat{p_i}(c))^2
 $$
 
+**indicator function**
+
+ detector와 상관 없이 object가 있는 cell일때만 1
+$$
+𝟙^{obj}_{i}
+$$
 
 
 
@@ -223,8 +262,10 @@ $$
      
      # 5*B + C 중 앞의 ((class 개수 + cell당 존재하는 box 개수) + 1 의 index)부터 (마지막 index)까지 extraction 
      predict_boxes = predict[:, :, num_classes + boxes_per_cell:]
+     # predict_boxes의 shape 
+     # [0, 1, ... , ~num_class, 첫 번째 Bbox의 confidence 예측값, 두 번째 Bbox의 confidence 예측값, 첫 번째 Bbox의 x, y, w, h, 두 번째 Bbox의 x, y, w, h  ]
      
-     # cell_size = 7, boxes_per_cell = 2 일 때 predict_boxes.shape == 7*7*8
+     # cell_size = 7, boxes_per_cell = 2 일 때 predict_boxes의 shape을 7*7*(2×4) 로 reshape해준다.
      predict_boxes = tf.reshape(predict_boxes, [cell_size, cell_size, boxes_per_cell, 4])
  
  # prediction : absolute coordinate
@@ -251,7 +292,9 @@ $$
  
  # find best box mask
      I = iou_predict_truth
-     max_I = tf.reduce_max(I, 2, keepdims=True) # 2개의 box 중에서 iou가 높은 box만 할당
+     max_I = tf.reduce_max(I, 2, keepdims=True) # 각 cell 별로 2개의 box 중에서 iou가 높은 box만 할당
+     # I가 max_I보다 크거나 같으면 1, 작으면 0 할당 → (7, 7, 2)을 (7*7*1)의 채널이 두 개 있다고 가정하면 IOU가 높은 채널에만 1을, 아닌 채널에는 0을 할당해서 7*7의 mask iamge가 두 개 만들어진다.
+     # 이 때 1인 cell은 object cell, 0인 cell은 noobject cell이다.
      best_box_mask = tf.cast((I >= max_I), tf.float32)
  
  # set object_loss information
@@ -266,8 +309,8 @@ $$
  
  # find object exists cell mask
      object_exists_cell = np.zeros([cell_size, cell_size, 1])
-     # label x, y coordinate로 전체 image 중에서 label object가 있는 cell 위치 찾기 
-     # [cell_size, cell_size] 의 각 cell 중 object가 있는 cell에만 1의 값을, 나머지는 0의 값을 가지도록 set
+     # label의 x, y coordinate로 전체 image 중에서 label object가 있는 cell 위치 찾기 
+     # [cell_size, cell_size] 의 각 cell 중 object가 있는 cell에만 1의 값을, 나머지는 0의 값을 가지도록 set (label mask image 만듦)
      object_exists_cell_i, object_exists_cell_j = int(cell_size * ycenter / input_height), int(cell_size * xcenter / input_width)
      object_exists_cell[object_exists_cell_i][object_exists_cell_j] = 1
  
