@@ -31,6 +31,20 @@ image를 **S*S Grid Cell** 로 나누고, 각 cell 별로 **B** 개의 **Boundin
 
 
 
+### Neural Network
+
+Keras Model subclassing API로 구현. Class 안에서는 Keras Functional API 방식으로 구글의 *Inception V3* model을 가져온 후 GlobalAveragePooling2D과 Dense Layer을 추가해서 구현했다.  
+
+| model or layer         | input | output |
+| ---------------------- | ----- | ------ |
+| InceptionV3.output     | x0    | x1     |
+| GlobalAveragePooling2D | x1    | x2     |
+| Dense                  | x2    | output |
+
+
+
+
+
 ## Training process
 
 1. #### **YOLO Model에 image를 input**
@@ -134,7 +148,6 @@ class YOLOv1(Model):
 
 
 - line 13 : include parameters of GoogLeNet ver.3 for training to get better performance
-
 
 
 
