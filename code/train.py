@@ -43,7 +43,7 @@ dir_name = 'train2'
 CONTINUE_LEARNING = False  # 이전에 했던 training을 다시 시작할 때 False, 계속 이어서 할 땐 True 
 
 # set configuration value
-batch_size = 24 	# original paper : 64
+batch_size = 32 	# original paper : 64
 input_width = 224 	# original paper : 448
 input_height = 224 	# original paper : 448
 cell_size = 7
