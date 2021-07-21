@@ -346,10 +346,6 @@ def main(_):
 			batch_bbox = tf.squeeze(batch_bbox, axis=1)
 			batch_labels = tf.squeeze(batch_labels, axis=1)
 
-			#import sys
-			#print(batch_labels)
-			#sys.exit()
-
 			# run optimization and compute loss
 			(total_loss, 
 			 coord_loss, 
