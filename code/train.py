@@ -22,7 +22,7 @@ flags.DEFINE_string('checkpoint_path', default='saved_model', help='path to a di
 flags.DEFINE_integer('save_checkpoint_steps', default=50, help='period at which checkpoints are saved (defaults to every 50 steps)')
 flags.DEFINE_string('tensorboard_log_path', default='tensorboard_log', help='path to a directory to save tensorboard log')
 flags.DEFINE_integer('validation_steps', default=50, help='period at which test prediction result and save image')  # 몇 번의 step마다 validation data로 test를 할지 결정
-flags.DEFINE_integer('num_epochs', default=15, help='training epochs') # original paper : 135 epoch
+flags.DEFINE_integer('num_epochs', default=20, help='training epochs') # original paper : 135 epoch
 flags.DEFINE_float('init_learning_rate', default=0.0001, help='initial learning rate') # original paper : 0.001 (1epoch) -> 0.01 (75epoch) -> 0.001 (30epoch) -> 0.0001 (30epoch)
 flags.DEFINE_float('lr_decay_rate', default=0.75, help='decay rate for the learning rate')
 flags.DEFINE_integer('lr_decay_steps', default=200, help='number of steps after which the learning rate is decayed by decay rate') # 2000번 마다 init_learning_rate * lr_decay_rate 을 실행
@@ -342,13 +342,13 @@ def main(_):
 			batch_bbox = features['objects']['bbox']
 			batch_labels = features['objects']['label']
 
-			import sys
-			print(features['objects']['label'])
-			sys.exit()
-
 			batch_image = tf.squeeze(batch_image, axis=1)
 			batch_bbox = tf.squeeze(batch_bbox, axis=1)
 			batch_labels = tf.squeeze(batch_labels, axis=1)
+
+			#import sys
+			#print(batch_labels)
+			#sys.exit()
 
 			# run optimization and compute loss
 			(total_loss, 

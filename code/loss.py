@@ -55,9 +55,9 @@ def yolo_loss(predict,
 	pred_P = predict[:, :, 0:num_classes] 
 
 	#import sys # p 는 ONT_HOT인데, pred_P는 어떨지 확인
-	#print('P: ', P)   tf.Tensor([0. 0.], shape=(2,), dtype=float32)
-	#print('pred_P: ', pred_P )  shape=(7, 7, 2) 
-	#print('label[4]: ', label[4])  label[4]:  7.0
+	#print('P: ', P)   # tf.Tensor([0. 0.], shape=(2,), dtype=float32)
+	#print('pred_P: ', pred_P )  #  shape=(7, 7, 2) 
+	#print('label[4]: ', label[4])  # label[4]:  7.0
 	#sys.exit()
 
 	# find object exists cell mask

@@ -5,7 +5,8 @@ import tensorflow_datasets as tfds
 
 def predicate(x):  # x는 전체 dataset
 	label = x['objects']['label']
-	
+
+	# 7또는 9라는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
 	isallowed_cat = tf.equal(tf.constant([7.0]), tf.cast(label, tf.float32)) 	# label이 7인 element만 True
 	isallowed_cow = tf.equal(tf.constant([9.0]), tf.cast(label, tf.float32)) 	# label이 9인 element만 True
 
@@ -31,12 +32,6 @@ def load_pascal_voc_dataset(batch_size):
     
 	train_data = train_data.filter(predicate) # 7 label 만 정제해서 할당 
 	train_data = train_data.padded_batch(batch_size) # train_data가 filter(predicate) 에 의해 가변적인 크기를 가지고 있으므로 batch 대신 padded_batch 사용
-
-	for iter, features in enumerate(train_data):
-		import sys
-		print('features["objects"]["label"]: ',features['objects']['label'])
-		sys.exit()
-
 
 	validation_data = validation_data.filter(predicate)
 	validation_data = validation_data.padded_batch(batch_size)
@@ -87,9 +82,10 @@ def process_each_ground_truth(original_image,
     image = tf.image.resize(image, [input_height, input_width])
 
     object_num = np.count_nonzero(bbox, axis=0)[0]
+    # object_num = np.count_nonzero(class_labels, axis=0)
 
     # labels initialize
-    labels = [[0, 0, 0, 0, 0]] * object_num
+    labels = [[0, 0, 0, 0, 0]] * object_num # (x, y, w, h, class_number) * object_num 
     
     for i in range(object_num):
         xmin = bbox[i][1] * original_w
