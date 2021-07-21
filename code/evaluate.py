@@ -21,7 +21,7 @@ FLAGS = flags.FLAGS
 
 # set voc label dictionary
 cat_label_to_class_dict = {
-	0:"cat"
+	0:"cat", 1: "cow"
 }
 cat_class_to_label_dict = {v: k for k, v in cat_label_to_class_dict.items()}
 
@@ -30,7 +30,7 @@ batch_size = 1
 input_width = 224 	# original paper : 448
 input_height = 224 	# original paper : 448
 cell_size = 7
-num_classes = 1 	# original paper : 20
+num_classes = 2 	# original paper : 20
 boxes_per_cell = 2
 
 # set color_list for drawing
@@ -120,11 +120,14 @@ def main(_):
 			box_h = label[3]
 			class_label = label[4]
 
-			# label 7 : cat
+			
 			# add ground-turth bounding box dict list
-			if class_label == 7:
+			if class_label == 7:     # label 7 : cat
 				ground_truth_bounding_box_info_list.append(
-				yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, 'cat', 1.0))
+					yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, 'cat', 1.0))
+			elif class_label == 9:	 # # label 9 : cow
+				ground_truth_bounding_box_info_list.append(
+					yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, 'cow', 1.0))
 
 		ground_truth_drawing_image = drawing_image.copy()
 		# draw ground-truth image
@@ -141,19 +144,21 @@ def main(_):
 			)
 
 		# find one max confidence bounding box
-		max_confidence_bounding_box = find_max_confidence_bounding_box(bounding_box_info_list)
+		confidence_bounding_box_list = find_max_confidence_bounding_box(bounding_box_info_list)
 
-    	# draw prediction
-		draw_bounding_box_and_label_info(
-		drawing_image,
-		max_confidence_bounding_box['left'],
-		max_confidence_bounding_box['top'],
-		max_confidence_bounding_box['right'],
-		max_confidence_bounding_box['bottom'],
-		max_confidence_bounding_box['class_name'],
-		max_confidence_bounding_box['confidence'],
-		color_list[cat_class_to_label_dict[max_confidence_bounding_box['class_name']]]
-    	)
+		# draw prediction (image 위에 bounding box 표현)
+		for confidence_bounding_box in confidence_bounding_box_list:
+			draw_bounding_box_and_label_info(
+				drawing_image,
+				confidence_bounding_box['left'],
+				confidence_bounding_box['top'],
+				confidence_bounding_box['right'],
+				confidence_bounding_box['bottom'],
+				confidence_bounding_box['class_name'],
+				confidence_bounding_box['confidence'],
+				color_list[cat_class_to_label_dict[confidence_bounding_box['class_name']]]) 
+
+
 
 		# left : ground-truth, right : prediction
 		drawing_image = np.concatenate((ground_truth_drawing_image, drawing_image), axis=1)

@@ -3,13 +3,17 @@ import numpy as np
 
 import tensorflow_datasets as tfds
 
-def predicate(x, allowed_labels=tf.constant([7.0])):
-    label = x['objects']['label']
-    isallowed = tf.equal(allowed_labels, tf.cast(label, tf.float32)) 	# label이 7인 element만 True
-
-    reduced = tf.reduce_sum(tf.cast(isallowed, tf.float32)) 			# label이 7인 element의 개수
+def predicate(x):  # x는 전체 dataset
+	label = x['objects']['label']
 	
-    return tf.greater(reduced, tf.constant(0.))  # label이 7인 element의 개수가 1개 이상일 때 True
+	isallowed_cat = tf.equal(tf.constant([7.0]), tf.cast(label, tf.float32)) 	# label이 7인 element만 True
+	isallowed_cow = tf.equal(tf.constant([9.0]), tf.cast(label, tf.float32)) 	# label이 9인 element만 True
+
+	reduced_cat = tf.reduce_sum(tf.cast(isallowed_cat, tf.float32)) 			# label이 7인 element의 개수
+	reduced_cow = tf.reduce_sum(tf.cast(isallowed_cow, tf.float32))
+	reduced = reduced_cat + reduced_cow  # cat과 cow data 합산
+
+	return tf.greater(reduced, tf.constant(0.))  # label이 7인 element의 개수가 0보다 클 때(1개 이상일때) True
 
 # load pascal voc2007/voc2012 dataset using tfds
 
@@ -27,6 +31,12 @@ def load_pascal_voc_dataset(batch_size):
     
 	train_data = train_data.filter(predicate) # 7 label 만 정제해서 할당 
 	train_data = train_data.padded_batch(batch_size) # train_data가 filter(predicate) 에 의해 가변적인 크기를 가지고 있으므로 batch 대신 padded_batch 사용
+
+	for iter, features in enumerate(train_data):
+		import sys
+		print('features["objects"]["label"]: ',features['objects']['label'])
+		sys.exit()
+
 
 	validation_data = validation_data.filter(predicate)
 	validation_data = validation_data.padded_batch(batch_size)

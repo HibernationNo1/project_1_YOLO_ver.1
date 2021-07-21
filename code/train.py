@@ -22,7 +22,7 @@ flags.DEFINE_string('checkpoint_path', default='saved_model', help='path to a di
 flags.DEFINE_integer('save_checkpoint_steps', default=50, help='period at which checkpoints are saved (defaults to every 50 steps)')
 flags.DEFINE_string('tensorboard_log_path', default='tensorboard_log', help='path to a directory to save tensorboard log')
 flags.DEFINE_integer('validation_steps', default=50, help='period at which test prediction result and save image')  # 몇 번의 step마다 validation data로 test를 할지 결정
-flags.DEFINE_integer('num_epochs', default=10, help='training epochs') # original paper : 135 epoch
+flags.DEFINE_integer('num_epochs', default=15, help='training epochs') # original paper : 135 epoch
 flags.DEFINE_float('init_learning_rate', default=0.0001, help='initial learning rate') # original paper : 0.001 (1epoch) -> 0.01 (75epoch) -> 0.001 (30epoch) -> 0.0001 (30epoch)
 flags.DEFINE_float('lr_decay_rate', default=0.75, help='decay rate for the learning rate')
 flags.DEFINE_integer('lr_decay_steps', default=200, help='number of steps after which the learning rate is decayed by decay rate') # 2000번 마다 init_learning_rate * lr_decay_rate 을 실행
@@ -35,11 +35,11 @@ FLAGS = flags.FLAGS
 
 # set cat label dictionary 
 cat_label_dict = {
-  0: "cat"
+  0: "cat", 1: "cow"
 }
 cat_class_to_label_dict = {v: k for k, v in cat_label_dict.items()}
 
-dir_name = 'train2'
+dir_name = 'tmp'
 CONTINUE_LEARNING = False  # 이전에 했던 training을 다시 시작할 때 False, 계속 이어서 할 땐 True 
 
 # set configuration value
@@ -47,7 +47,7 @@ batch_size = 32 	# original paper : 64
 input_width = 224 	# original paper : 448
 input_height = 224 	# original paper : 448
 cell_size = 7
-num_classes = 1 	# original paper : 20
+num_classes = 2 	# original paper : 20
 boxes_per_cell = 2
 
 # set color_list for drawing
@@ -190,23 +190,34 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 															  input_width, input_height)
 	
 		drawing_image = image
-  
 		image = tf.expand_dims(image, axis=0)  # make dummy dimasion
+
 		predict = model(image)
 		predict = tf.reshape(predict,
-				 [tf.shape(predict)[0], cell_size, cell_size, num_classes + 5 * boxes_per_cell])
-	
-		# parse prediction
+				 [tf.shape(predict)[0], cell_size, cell_size, num_classes + (5 * boxes_per_cell)])
+		
+		# parse prediction(x, y, w, h)
 		predict_boxes = predict[0, :, :, num_classes + boxes_per_cell:]
 		predict_boxes = tf.reshape(predict_boxes, [cell_size, cell_size, boxes_per_cell, 4])
-	
+
 		confidence_boxes = predict[0, :, :, num_classes:num_classes + boxes_per_cell]
 		confidence_boxes = tf.reshape(confidence_boxes, [cell_size, cell_size, boxes_per_cell, 1])
-	   
-		# Non-maximum suppression
-		class_prediction = predict[0, :, :, 0:num_classes]
+
+		# 각 셀마다 class confidence가 가장 높은 prediction의 index추출(predict한 class name)
+		# 0:num_class는 에는 각 class에 대한 predicted probability value가 있다.(class 확률의 합 = 1)
+		class_prediction = predict[0, :, :, 0:num_classes]  
 		class_prediction = tf.argmax(class_prediction, axis=2)
-		  
+
+		
+		#from utils import iou
+		#tmp_iou = 0.0
+		#for each_object_num in range(object_num):
+		#	labels = np.array(labels)
+		#	labels = labels.astype('float32')
+		#	label = labels[each_object_num, :]
+		
+		#	tmp_iou = iou(predict_boxes, label[0:4])
+
 		# make prediction bounding box list
 		bounding_box_info_list = []
 		for i in range(cell_size):
@@ -220,8 +231,13 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 					
 					pred_class_name = cat_label_dict[class_prediction[i][j].numpy()]                   
 					pred_confidence = confidence_boxes[i][j][k].numpy()[0]
+
+					#check_tmp_iou = tmp_iou[i][j][k].numpy()
+					#print('pred_confidence: ',pred_confidence)
+					#print('check_tmp_iou: ', check_tmp_iou)
                     
-					# for문이 끝나면 bounding_box_info_list에는 7(cell_size) * 7(cell_size) * 2(boxes_per_cell) = 98 개의 bounding box의 information이 들어있다.
+					# for문이 끝나면 bounding_box_info_list에는 7(cell_size) * 7(cell_size) * 2) = 98 개의 bounding box의 information이 들어있다.
+					# 각 bounding box의 information은 (x, y, w, h, class_name, confidence)이다.
 					# add bounding box dict list
 					bounding_box_info_list.append(yolo_format_to_bounding_box_dict(pred_xcenter, 
 																				   pred_ycenter,
@@ -229,7 +245,7 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 																				   pred_box_h,
 																				   pred_class_name,
 																				   pred_confidence))
-	   
+
 		# make ground truth bounding box list
 		ground_truth_bounding_box_info_list = []
 		for each_object_num in range(object_num):
@@ -243,10 +259,14 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 			class_label = label[4]
 		  
 			# add ground-turth bounding box dict list
+			# 특정 class에만 ground truth bounding box information을 draw
 			if class_label == 7:     # label 7 : cat
 				ground_truth_bounding_box_info_list.append(
 					yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, 'cat', 1.0))
-		
+			elif class_label == 9:    # label 9 : cow
+				ground_truth_bounding_box_info_list.append(
+					yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, 'cow', 1.0))
+
 		ground_truth_drawing_image = drawing_image.copy()
 		# draw ground-truth image
 		# window에 정답값의 bounding box와 그에 따른 information을 draw
@@ -262,19 +282,20 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 				color_list[cat_class_to_label_dict[ground_truth_bounding_box_info['class_name']]])
 		 
 		# find one max confidence bounding box
-		# Non-maximum suppression을 사용하지 않고, 약식으로 진행 (confidence가 가장 큰 bounding box 하나만 선택)
-		max_confidence_bounding_box = find_max_confidence_bounding_box(bounding_box_info_list)
+		# Non-maximum suppression을 사용하지 않고, 약식으로 진행 (confidence 상위 두 개의 bounding box 선택)
+		confidence_bounding_box_list = find_max_confidence_bounding_box(bounding_box_info_list)
 
 		# draw prediction (image 위에 bounding box 표현)
-		draw_bounding_box_and_label_info(
-			drawing_image,
-			max_confidence_bounding_box['left'],
-			max_confidence_bounding_box['top'],
-			max_confidence_bounding_box['right'],
-			max_confidence_bounding_box['bottom'],
-			max_confidence_bounding_box['class_name'],
-			max_confidence_bounding_box['confidence'],
-			color_list[cat_class_to_label_dict[max_confidence_bounding_box['class_name']]])
+		for confidence_bounding_box in confidence_bounding_box_list:
+			draw_bounding_box_and_label_info(
+				drawing_image,
+				confidence_bounding_box['left'],
+				confidence_bounding_box['top'],
+				confidence_bounding_box['right'],
+				confidence_bounding_box['bottom'],
+				confidence_bounding_box['class_name'],
+				confidence_bounding_box['confidence'],
+				color_list[cat_class_to_label_dict[confidence_bounding_box['class_name']]])
 	 
 
 		# left : ground-truth, right : prediction
@@ -320,7 +341,11 @@ def main(_):
 			batch_image = features['image']
 			batch_bbox = features['objects']['bbox']
 			batch_labels = features['objects']['label']
-			
+
+			import sys
+			print(features['objects']['label'])
+			sys.exit()
+
 			batch_image = tf.squeeze(batch_image, axis=1)
 			batch_bbox = tf.squeeze(batch_bbox, axis=1)
 			batch_labels = tf.squeeze(batch_labels, axis=1)
