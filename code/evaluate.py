@@ -149,19 +149,19 @@ def main(_):
       )
 
     # find one max confidence bounding box
-    max_confidence_bounding_box = find_max_confidence_bounding_box(bounding_box_info_list)
+    confidence_bounding_box_list = find_max_confidence_bounding_box(bounding_box_info_list)
 
     # draw prediction
-    draw_bounding_box_and_label_info(
-      drawing_image,
-      max_confidence_bounding_box['left'],
-      max_confidence_bounding_box['top'],
-      max_confidence_bounding_box['right'],
-      max_confidence_bounding_box['bottom'],
-      max_confidence_bounding_box['class_name'],
-      max_confidence_bounding_box['confidence'],
-      color_list[cat_class_to_label_dict[max_confidence_bounding_box['class_name']]]
-    )
+    for confidence_bounding_box in confidence_bounding_box_list:
+        draw_bounding_box_and_label_info(
+				drawing_image,
+				confidence_bounding_box['left'],
+				confidence_bounding_box['top'],
+				confidence_bounding_box['right'],
+				confidence_bounding_box['bottom'],
+				confidence_bounding_box['class_name'],
+				confidence_bounding_box['confidence'],
+				color_list[cat_class_to_label_dict[confidence_bounding_box['class_name']]])
 
     # left : ground-truth, right : prediction
     drawing_image = np.concatenate((ground_truth_drawing_image, drawing_image), axis=1)
