@@ -39,7 +39,7 @@ cat_label_dict = {
 }
 cat_class_to_label_dict = {v: k for k, v in cat_label_dict.items()}
 
-dir_name = 'multi_object_init'
+dir_name = 'tmp'
 CONTINUE_LEARNING = False  # 이전에 했던 training을 다시 시작할 때 False, 계속 이어서 할 땐 True 
 
 # set configuration value
@@ -346,9 +346,31 @@ def main(_):
 			batch_bbox = tf.squeeze(batch_bbox, axis=1)
 			batch_labels = tf.squeeze(batch_labels, axis=1)
 
-			#import sys
-			#print(batch_labels)
-			#sys.exit()
+			import sys
+			print(batch_labels)
+			print(batch_labels[1][1].dtype)
+			sys.exit()
+
+			if int(batch_labels[1][1]) == 8:
+				print('True')
+				batch_labels[1][1] = tf.constant(0)
+			else : 
+				print('False')
+
+			print(batch_labels[1][1])
+			sys.exit()
+
+			for i in range(int(tf.shape(batch_labels)[0])):
+				for j in range(int(tf.shape(batch_labels)[1])):
+					if batch_labels[i][j] == tf.constant([7]):
+						pass
+					elif batch_labels[i][j] == tf.constant([9]):
+						pass
+					else :
+						batch_labels[i][j] = 0
+
+			print(batch_labels)
+			sys.exit()
 
 			# run optimization and compute loss
 			(total_loss, 
