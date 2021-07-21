@@ -39,7 +39,7 @@ cat_label_dict = {
 }
 cat_class_to_label_dict = {v: k for k, v in cat_label_dict.items()}
 
-dir_name = 'tmp'
+dir_name = 'multi_object_init'
 CONTINUE_LEARNING = False  # 이전에 했던 training을 다시 시작할 때 False, 계속 이어서 할 땐 True 
 
 # set configuration value

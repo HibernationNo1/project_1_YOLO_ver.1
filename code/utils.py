@@ -115,7 +115,7 @@ def find_max_confidence_bounding_box(bounding_box_info_list):
 
 	# confidence값이 0.5 이상인 Bbox는 모두 표현
 	for index, features in enumerate(bounding_box_info_list_sorted):
-		if bounding_box_info_list_sorted[index]['confidence'] > 0.5:
+		if bounding_box_info_list_sorted[index]['confidence'] > 0.1:
 			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
 
 
