@@ -118,9 +118,7 @@ def find_max_confidence_bounding_box(bounding_box_info_list):
 		if bounding_box_info_list_sorted[index]['confidence'] > 0.1:
 			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
 
-
 	return confidence_bounding_box_list
-
 
 def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name, confidence):
 	# the zero coordinate of image located
