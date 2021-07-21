@@ -11,11 +11,12 @@ class YOLOv1(Model):
 		super(YOLOv1, self).__init__()
 		base_model = InceptionV3(include_top=False, weights='imagenet', 
 								input_shape=(input_height, input_width, 3))
+		# shape = (None, 5, 5, 2048)
 		base_model.trainable = True
 		x = base_model.output
     
 		# Global Average Pooling
-		x = GlobalAveragePooling2D()(x)
+		x = GlobalAveragePooling2D()(x)  # shape = (None, 2048)
 		output = Dense(cell_size * cell_size * (num_classes + (boxes_per_cell*5)), activation=None)(x)
 		model = Model(inputs=base_model.input, outputs=output)
 		self.model = model
