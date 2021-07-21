@@ -113,9 +113,11 @@ def find_max_confidence_bounding_box(bounding_box_info_list):
 											reverse=True)
 	confidence_bounding_box_list = list()
 
-	for i in range(2):  # 0부터 1까지 상위 두 개의 confidence값을 가진 bounding_box
-		if bounding_box_info_list_sorted[i]['confidence'] > 0.5:  # 상위 bounding_box값이 0.5 이상일 때만 Bbox를 표현하기 위한 조건
-			confidence_bounding_box_list.append(bounding_box_info_list_sorted[i])
+	# confidence값이 0.5 이상인 Bbox는 모두 표현
+	for index, features in enumerate(bounding_box_info_list_sorted):
+		if bounding_box_info_list_sorted[index]['confidence'] > 0.5:
+			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
+
 
 	return confidence_bounding_box_list
 
