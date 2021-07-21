@@ -17,6 +17,7 @@ def yolo_loss(predict,
 			  ):
 
 	# parse only coordinate vector
+	# predict의 shape [tf.shape(predict)[0], cell_size, cell_size, num_classes + 5 * boxes_per_cell]
 	predict_boxes = predict[:, :, num_classes + boxes_per_cell:]
 	predict_boxes = tf.reshape(predict_boxes, [cell_size, cell_size, boxes_per_cell, 4])
 
@@ -45,13 +46,19 @@ def yolo_loss(predict,
 	max_I = tf.reduce_max(I, 2, keepdims=True)
 	best_box_mask = tf.cast((I >= max_I), tf.float32)
 
-	# set object_loss information
+	# set object_loss information(confidence, object가 있을 확률)
 	C = iou_predict_truth
-	pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell]
+	pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell] 
 
-	# set class_loss information
+	# set class_loss information(probability, 특정 class 일 확률)
 	P = tf.one_hot(tf.cast(label[4], tf.int32), num_classes, dtype=tf.float32)
-	pred_P = predict[:, :, 0:num_classes]
+	pred_P = predict[:, :, 0:num_classes] 
+
+	#import sys # p 는 ONT_HOT인데, pred_P는 어떨지 확인
+	#print('P: ', P)   tf.Tensor([0. 0.], shape=(2,), dtype=float32)
+	#print('pred_P: ', pred_P )  shape=(7, 7, 2) 
+	#print('label[4]: ', label[4])  label[4]:  7.0
+	#sys.exit()
 
 	# find object exists cell mask
 	object_exists_cell = np.zeros([cell_size, cell_size, 1])
