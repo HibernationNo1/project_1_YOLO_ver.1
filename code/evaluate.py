@@ -12,6 +12,7 @@ from utils import (draw_bounding_box_and_label_info,
 				   generate_color,
 				   find_enough_confidence_bounding_box, 
 				   yolo_format_to_bounding_box_dict)
+from utils import iou
 
 
 flags.DEFINE_string('cp_path', default='saved_model', help='path to a directory to restore checkpoint file')
@@ -20,10 +21,13 @@ flags.DEFINE_string('test_dir', default='test_result', help='directory which tes
 FLAGS = flags.FLAGS
 
 # set voc label dictionary
-cat_label_to_class_dict = {
+label_to_class_dict = {
 	0:"cat", 1: "cow"
 }
-cat_class_to_label_dict = {v: k for k, v in cat_label_to_class_dict.items()}
+cat_class_to_label_dict = {v: k for k, v in label_to_class_dict.items()}
+
+from dataset import class_name_dict  
+# class_name_dict = { 7: "cat", 9:"cow" }
 
 # set configuration value
 batch_size = 1
@@ -37,6 +41,7 @@ boxes_per_cell = 2
 color_list = generate_color(num_classes)
 
 test_data = load_pascal_voc_dataset_for_test(batch_size)
+
 
 def main(_):
 	# check if checkpoint path exists
@@ -81,12 +86,19 @@ def main(_):
 		predict_boxes = predict[0, :, :, num_classes + boxes_per_cell:]
 		predict_boxes = tf.reshape(predict_boxes, [cell_size, cell_size, boxes_per_cell, 4])
 
+
 		confidence_boxes = predict[0, :, :, num_classes:num_classes + boxes_per_cell]
 		confidence_boxes = tf.reshape(confidence_boxes, [cell_size, cell_size, boxes_per_cell, 1])
 
-		class_prediction = predict[0, :, :, 0:num_classes]
+		class_prediction = predict[0, :, :, 0:num_classes]  
+		class_prediction_value = tf.reduce_max(class_prediction, axis = 2) # for compute confidence_score
 		class_prediction = tf.argmax(class_prediction, axis=2)
 
+		confidence_score = np.zeros_like(confidence_boxes[:, :, :, 0])
+		for i in range(boxes_per_cell):
+			confidence_score[:, :, i] = (confidence_boxes[:, :, i, 0] * class_prediction_value)/10
+		
+		# make prediction bounding box list
 		bounding_box_info_list = []
 		for i in range(cell_size):
 			for j in range(cell_size):
@@ -95,10 +107,10 @@ def main(_):
 					pred_ycenter = predict_boxes[i][j][k][1]
 					pred_box_w = tf.minimum(input_width * 1.0, tf.maximum(0.0, predict_boxes[i][j][k][2]))
 					pred_box_h = tf.minimum(input_height * 1.0, tf.maximum(0.0, predict_boxes[i][j][k][3]))
-
-					pred_class_name = cat_label_to_class_dict[class_prediction[i][j].numpy()]
-					pred_confidence = confidence_boxes[i][j][k].numpy()
-
+				   
+					
+					pred_class_name = label_to_class_dict[class_prediction[i][j].numpy()]                   
+					pred_confidence = confidence_score[i][j][k]
 					# add bounding box dict list
 					bounding_box_info_list.append(
 					yolo_format_to_bounding_box_dict(pred_xcenter,
@@ -122,12 +134,11 @@ def main(_):
 
 			
 			# add ground-turth bounding box dict list
-			if class_label == 7:     # label 7 : cat
-				ground_truth_bounding_box_info_list.append(
-					yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, 'cat', 1.0))
-			elif class_label == 9:	 # # label 9 : cow
-				ground_truth_bounding_box_info_list.append(
-					yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, 'cow', 1.0))
+			for label_num in class_name_dict.keys():
+				if int(class_label) == label_num:     
+					ground_truth_bounding_box_info_list.append(
+						yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h,
+						 str(class_name_dict[label_num]), 1.0))
 
 		ground_truth_drawing_image = drawing_image.copy()
 		# draw ground-truth image
@@ -139,7 +150,7 @@ def main(_):
 			ground_truth_bounding_box_info['right'],
 			ground_truth_bounding_box_info['bottom'],
 			ground_truth_bounding_box_info['class_name'],
-			ground_truth_bounding_box_info['confidence'],
+			ground_truth_bounding_box_info['confidence_score'],
 			color_list[cat_class_to_label_dict[ground_truth_bounding_box_info['class_name']]]
 			)
 
@@ -155,7 +166,7 @@ def main(_):
 				confidence_bounding_box['right'],
 				confidence_bounding_box['bottom'],
 				confidence_bounding_box['class_name'],
-				confidence_bounding_box['confidence'],
+				confidence_bounding_box['confidence_score'],
 				color_list[cat_class_to_label_dict[confidence_bounding_box['class_name']]]) 
 
 
