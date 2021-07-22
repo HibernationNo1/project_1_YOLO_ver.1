@@ -52,20 +52,16 @@ def yolo_loss(predict,
 	C = iou_predict_truth
 	pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell] 
 
+	# set class_loss information(brobability, 특정 class일 확률)
 	index_list = [i for i in range(num_classes)]		
 	P_one_hot = (tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32))*10
-
-	print(P_one_hot)
-
+	
+	P = 0.0
 	for i in range(num_classes):
 		if label[4] == list(class_name_dict.keys())[i]:
 			P = P_one_hot[i]
 
 	pred_P = predict[:, :, 0:num_classes] 
-
-	import sys # p 는 ONT_HOT인데, pred_P는 어떨지 확인
-
-	sys.exit()
 
 	# find object exists cell mask
 	object_exists_cell = np.zeros([cell_size, cell_size, 1])
