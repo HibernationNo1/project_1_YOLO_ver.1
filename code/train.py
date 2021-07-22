@@ -8,14 +8,17 @@ from absl import app
 from tensorflow.keras.optimizers import schedules
 from tensorflow.keras.optimizers import Adam
 
-
-from utils import generate_color, dir_setting, save_checkpoint, set_checkpoint_manager
 from dataset import load_pascal_voc_dataset
 from loss import yolo_loss
 from dataset import process_each_ground_truth
 from utils import (draw_bounding_box_and_label_info,
-				   find_max_confidence_bounding_box, 
-				   yolo_format_to_bounding_box_dict)
+				   find_enough_confidence_bounding_box, 
+				   yolo_format_to_bounding_box_dict,
+				   generate_color,
+				   dir_setting,
+				   save_checkpoint,
+				   set_checkpoint_manager,
+				   remove_irrelevant_label)
 
 # flags instance로 hyper parameters setting
 flags.DEFINE_string('checkpoint_path', default='saved_model', help='path to a directory to save model checkpoints during training')
@@ -35,22 +38,29 @@ FLAGS = flags.FLAGS
 
 # set cat label dictionary 
 cat_label_dict = {
-  0: "cat", 1: "cow"
+	0: "cat", 1: "cow"
 }
 cat_class_to_label_dict = {v: k for k, v in cat_label_dict.items()}
 
-dir_name = 'tmp'
-CONTINUE_LEARNING = False  # 이전에 했던 training을 다시 시작할 때 False, 계속 이어서 할 땐 True 
+# class_name_dict을 dataset.py에서 선언하는 이유 : teain.py에서 선언하면 import 순환 이슈가 발생한다.
+from dataset import class_name_dict  
+# class_name_dict = { 7: "cat", 9:"cow" }
+
+dir_name = 'remove_irrelevant_label'
+
+# 이전에 했던 training을 다시 시작하거나 처음 진행할 때 False, 계속 이어서 할 땐 True 
+CONTINUE_LEARNING = False 
+
 
 # set configuration value
 batch_size = 32 	# original paper : 64
 input_width = 224 	# original paper : 448
 input_height = 224 	# original paper : 448
 cell_size = 7
-num_classes = 2 	# original paper : 20
+num_classes = len(class_name_dict.keys()) 	# original paper : 20
 boxes_per_cell = 2
 
-# set color_list for drawing
+# set color_list for drawings
 color_list = generate_color(num_classes)
 
 # generate dataset
@@ -283,7 +293,7 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 		 
 		# find one max confidence bounding box
 		# Non-maximum suppression을 사용하지 않고, 약식으로 진행 (confidence 상위 두 개의 bounding box 선택)
-		confidence_bounding_box_list = find_max_confidence_bounding_box(bounding_box_info_list)
+		confidence_bounding_box_list = find_enough_confidence_bounding_box(bounding_box_info_list)
 
 		# draw prediction (image 위에 bounding box 표현)
 		for confidence_bounding_box in confidence_bounding_box_list:
@@ -346,31 +356,7 @@ def main(_):
 			batch_bbox = tf.squeeze(batch_bbox, axis=1)
 			batch_labels = tf.squeeze(batch_labels, axis=1)
 
-			import sys
-			print(batch_labels)
-			print(batch_labels[1][1].dtype)
-			sys.exit()
-
-			if int(batch_labels[1][1]) == 8:
-				print('True')
-				batch_labels[1][1] = tf.constant(0)
-			else : 
-				print('False')
-
-			print(batch_labels[1][1])
-			sys.exit()
-
-			for i in range(int(tf.shape(batch_labels)[0])):
-				for j in range(int(tf.shape(batch_labels)[1])):
-					if batch_labels[i][j] == tf.constant([7]):
-						pass
-					elif batch_labels[i][j] == tf.constant([9]):
-						pass
-					else :
-						batch_labels[i][j] = 0
-
-			print(batch_labels)
-			sys.exit()
+			batch_labels = remove_irrelevant_label(batch_labels, class_name_dict)
 
 			# run optimization and compute loss
 			(total_loss, 
