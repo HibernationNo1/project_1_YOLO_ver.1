@@ -107,7 +107,7 @@ def draw_bounding_box_and_label_info(frame, x_min, y_min, x_max, y_max, label, c
 				lineType)
     
 
-def find_max_confidence_bounding_box(bounding_box_info_list):
+def find_enough_confidence_bounding_box(bounding_box_info_list):
 	bounding_box_info_list_sorted = sorted(bounding_box_info_list,
 											key=itemgetter('confidence'),
 											reverse=True)
@@ -115,7 +115,7 @@ def find_max_confidence_bounding_box(bounding_box_info_list):
 
 	# confidence값이 0.5 이상인 Bbox는 모두 표현
 	for index, features in enumerate(bounding_box_info_list_sorted):
-		if bounding_box_info_list_sorted[index]['confidence'] > 0.1:
+		if bounding_box_info_list_sorted[index]['confidence'] > 0.5:
 			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
 
 	return confidence_bounding_box_list
@@ -131,7 +131,6 @@ def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name,
 	bounding_box_info['confidence'] = confidence
 
 	return bounding_box_info
-
 
 
 def iou(yolo_pred_boxes, ground_truth_boxes):
@@ -188,3 +187,17 @@ def generate_color(num_classes):
 	np.random.seed(None) 		# Reset seed to default.
 
 	return colors
+
+# detect할 class에 대한 label만 추려내고, 나머지 label은 0으로 만드는 function
+def remove_irrelevant_label(batch_labels, class_name_dict):
+	tmp = np.zeros_like(batch_labels)
+
+	for i in range(int(tf.shape(batch_labels)[0])):
+		for j in range(int(tf.shape(batch_labels)[1])):
+			for lable_num in class_name_dict.keys(): 
+				if batch_labels[i][j] == lable_num:
+					tmp[i][j] = batch_labels[i][j]
+					continue
+	batch_labels = tf.constant(tmp)
+
+	return batch_labels

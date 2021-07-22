@@ -10,7 +10,7 @@ from model import YOLOv1
 from dataset import load_pascal_voc_dataset_for_test, process_each_ground_truth
 from utils import (draw_bounding_box_and_label_info, 
 				   generate_color,
-				   find_max_confidence_bounding_box, 
+				   find_enough_confidence_bounding_box, 
 				   yolo_format_to_bounding_box_dict)
 
 
@@ -144,7 +144,7 @@ def main(_):
 			)
 
 		# find one max confidence bounding box
-		confidence_bounding_box_list = find_max_confidence_bounding_box(bounding_box_info_list)
+		confidence_bounding_box_list = find_enough_confidence_bounding_box(bounding_box_info_list)
 
 		# draw prediction (image 위에 bounding box 표현)
 		for confidence_bounding_box in confidence_bounding_box_list:

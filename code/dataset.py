@@ -3,18 +3,24 @@ import numpy as np
 
 import tensorflow_datasets as tfds
 
+# dict of classes to detect 
+class_name_dict = {
+	7: "cat", 9:"cow"
+}
+
 def predicate(x):  # x는 전체 dataset
 	label = x['objects']['label']
-
+	
 	# 7또는 9라는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
-	isallowed_cat = tf.equal(tf.constant([7.0]), tf.cast(label, tf.float32)) 	# label이 7인 element만 True
-	isallowed_cow = tf.equal(tf.constant([9.0]), tf.cast(label, tf.float32)) 	# label이 9인 element만 True
+	reduced_sum = 0.0
 
-	reduced_cat = tf.reduce_sum(tf.cast(isallowed_cat, tf.float32)) 			# label이 7인 element의 개수
-	reduced_cow = tf.reduce_sum(tf.cast(isallowed_cow, tf.float32))
-	reduced = reduced_cat + reduced_cow  # cat과 cow data 합산
+	for label_num in class_name_dict.keys():
+		isallowed = tf.equal(tf.constant([float(label_num)]), tf.cast(label, tf.float32)) # label이 label_num인 element만 True
+		reduced = tf.reduce_sum(tf.cast(isallowed, tf.float32)) 	# label이 class_num인 element의 개수
+		reduced_sum += reduced
 
-	return tf.greater(reduced, tf.constant(0.))  # label이 7인 element의 개수가 0보다 클 때(1개 이상일때) True
+	return tf.greater(reduced_sum, tf.constant(0.))  # label이 7인 element의 개수가 0보다 클 때(1개 이상일때) True
+
 
 # load pascal voc2007/voc2012 dataset using tfds
 
@@ -58,6 +64,15 @@ def bounds_per_dimension(ndarray):
 def zero_trim_ndarray(ndarray):
 	return ndarray[np.ix_(*bounds_per_dimension(ndarray))]
 
+def index_reorder(labels):
+	tmp = np.zeros_like(labels)
+	num = 0
+	for i in range(tf.shape(labels)[0]):
+		if not labels[i] == 0:
+			tmp[num] = labels[i]
+			num +=1
+	labels = tf.constant(tmp)
+	return labels
 
 def process_each_ground_truth(original_image, 
                               bbox,
@@ -66,44 +81,53 @@ def process_each_ground_truth(original_image,
                               input_height
                               ):
     
-    # image에 zero padding 제거
-    image = original_image.numpy()
-    image = zero_trim_ndarray(image)
+	# image에 zero padding 제거
+	image = original_image.numpy()
+	image = zero_trim_ndarray(image)
 
-    # set original width height
-    original_w = image.shape[1] # original image의 width
-    original_h = image.shape[0] # original image의 height
+	# set original width height
+	original_w = image.shape[1] # original image의 width
+	original_h = image.shape[0] # original image의 height
 
-    # image의 x, y center coordinate를 계산하기 위해 rate compute
-    width_rate = input_width * 1.0 / original_w 
-    height_rate = input_height * 1.0 / original_h
+	# image의 x, y center coordinate를 계산하기 위해 rate compute
+	width_rate = input_width * 1.0 / original_w 
+	height_rate = input_height * 1.0 / original_h
 	
-    # YOLO input size로 image resizing
-    image = tf.image.resize(image, [input_height, input_width])
+	# YOLO input size로 image resizing
+	image = tf.image.resize(image, [input_height, input_width])
 
-    object_num = np.count_nonzero(bbox, axis=0)[0]
-    # object_num = np.count_nonzero(class_labels, axis=0)
+	# object_num = np.count_nonzero(bbox, axis=0)[0]
+	object_num = np.count_nonzero(class_labels, axis=0)
 
-    # labels initialize
-    labels = [[0, 0, 0, 0, 0]] * object_num # (x, y, w, h, class_number) * object_num 
+	# class_num = 2 일 때 tf.shape(class_labels) = (6,) , tf.shape(Bbox) = (6,4) 임을 고려
+	# [0 7 0 0 0 0] 을 [7 0 0 0 0 0] 처럼 index를 재정렬하는 function
+	class_labels = index_reorder(class_labels)
+
+	tmp = np.zeros_like(bbox)
+	for i in range(tf.shape(bbox)[1]):
+		tmp[:, i] = index_reorder(bbox[:, i])
+	bbox = tf.constant(tmp)
+
+	# labels initialize
+	labels = [[0, 0, 0, 0, 0]] * object_num # (x, y, w, h, class_number) * object_num 
     
-    for i in range(object_num):
-        xmin = bbox[i][1] * original_w
-        ymin = bbox[i][0] * original_h
-        xmax = bbox[i][3] * original_w
-        ymax = bbox[i][2] * original_h
+	for i in range(object_num):
+		xmin = bbox[i][1] * original_w
+		ymin = bbox[i][0] * original_h
+		xmax = bbox[i][3] * original_w
+		ymax = bbox[i][2] * original_h
 
-        class_num = class_labels[i] # 실제 class labels
+		class_num = class_labels[i] # 실제 class labels
 
 		# set center coordinate 
-        xcenter = (xmin + xmax) * 1.0 / 2 * width_rate 
-        ycenter = (ymin + ymax) * 1.0 / 2 * height_rate
+		xcenter = (xmin + xmax) * 1.0 / 2 * width_rate 
+		ycenter = (ymin + ymax) * 1.0 / 2 * height_rate
 
-        # bounding box의 width, height 
-        box_w = (xmax - xmin) * width_rate
-        box_h = (ymax - ymin) * height_rate
+		# bounding box의 width, height 
+		box_w = (xmax - xmin) * width_rate
+		box_h = (ymax - ymin) * height_rate
 		
-        # YOLO format형태의 5가지 labels 완성
-        labels[i] = [xcenter, ycenter, box_w, box_h, class_num]
+		# YOLO format형태의 5가지 labels 완성
+		labels[i] = [xcenter, ycenter, box_w, box_h, class_num]
 
-    return [image.numpy(), labels, object_num]
+	return [image.numpy(), labels, object_num]
