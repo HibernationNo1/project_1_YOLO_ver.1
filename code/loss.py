@@ -1,6 +1,8 @@
 import tensorflow as tf
 import numpy as np
 from utils import iou
+from dataset import class_name_dict
+# class_name_dict = { 7: "cat", 9:"cow" }
 
 def yolo_loss(predict,
 			  labels,
@@ -29,8 +31,8 @@ def yolo_loss(predict,
 	pred_sqrt_w = tf.cast(pred_sqrt_w, tf.float32)
 	pred_sqrt_h = tf.cast(pred_sqrt_h, tf.float32)
 
-	# parse label
-	labels = np.array(labels)
+	# parse labe
+	labels = np.array(labels) 
 	labels = labels.astype('float32')
 	label = labels[each_object_num, :]
 	xcenter = label[0]
@@ -50,15 +52,24 @@ def yolo_loss(predict,
 	C = iou_predict_truth
 	pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell] 
 
-	# set class_loss information(probability, 특정 class 일 확률)
-	P = tf.one_hot(tf.cast(label[4], tf.int32), num_classes, dtype=tf.float32)
-	pred_P = predict[:, :, 0:num_classes] 
+	index_list = [i for i in range(num_classes)]		
+	P_one_hot = tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32) 
 
-	#import sys # p 는 ONT_HOT인데, pred_P는 어떨지 확인
+	for i in range(num_classes):
+		if label[4] == list(class_name_dict.keys())[i]:
+			P = P_one_hot[i]
+
+	pred_P = predict[:, :, 0:num_classes] 
+	# pred_P의 두 값의 합은 1이여야 하는데(각 class의 확률 값으로 구성되어야 하는데)
+
+	# print(labels)  # [[126.336006 119.421684  96.768005 176.77107    7.      ]]  
+	# [xcenter, ycenter, box_w, box_h, class_num]
+
+	import sys # p 는 ONT_HOT인데, pred_P는 어떨지 확인
 	#print('P: ', P)   # tf.Tensor([0. 0.], shape=(2,), dtype=float32)
-	#print('pred_P: ', pred_P )  #  shape=(7, 7, 2) 
+	print('pred_P: ', pred_P )  #  shape=(7, 7, 2) 
 	#print('label[4]: ', label[4])  # label[4]:  7.0
-	#sys.exit()
+	sys.exit()
 
 	# find object exists cell mask
 	object_exists_cell = np.zeros([cell_size, cell_size, 1])
