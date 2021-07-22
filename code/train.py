@@ -46,7 +46,7 @@ cat_class_to_label_dict = {v: k for k, v in cat_label_dict.items()}
 from dataset import class_name_dict  
 # class_name_dict = { 7: "cat", 9:"cow" }
 
-dir_name = 'tmp'
+dir_name = '3_remove_irrelevant_label'
 
 # 이전에 했던 training을 다시 시작하거나 처음 진행할 때 False, 계속 이어서 할 땐 True 
 CONTINUE_LEARNING = False 
