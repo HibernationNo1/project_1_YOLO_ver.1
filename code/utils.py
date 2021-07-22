@@ -109,18 +109,18 @@ def draw_bounding_box_and_label_info(frame, x_min, y_min, x_max, y_max, label, c
 
 def find_enough_confidence_bounding_box(bounding_box_info_list):
 	bounding_box_info_list_sorted = sorted(bounding_box_info_list,
-											key=itemgetter('confidence'),
+											key=itemgetter('confidence_score'),
 											reverse=True)
 	confidence_bounding_box_list = list()
 
 	# confidence값이 0.5 이상인 Bbox는 모두 표현
 	for index, features in enumerate(bounding_box_info_list_sorted):
-		if bounding_box_info_list_sorted[index]['confidence'] > 0.5:
+		if bounding_box_info_list_sorted[index]['confidence_score'] > 0.5:
 			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
 
 	return confidence_bounding_box_list
 
-def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name, confidence):
+def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name, confidence_score):
 	# the zero coordinate of image located
 	bounding_box_info = dict()
 	bounding_box_info['left'] = int(xcenter - (box_w / 2))
@@ -128,7 +128,7 @@ def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name,
 	bounding_box_info['right'] = int(xcenter + (box_w / 2))
 	bounding_box_info['bottom'] = int(ycenter - (box_h / 2))
 	bounding_box_info['class_name'] = class_name
-	bounding_box_info['confidence'] = confidence
+	bounding_box_info['confidence_score'] = confidence_score
 
 	return bounding_box_info
 
@@ -201,3 +201,4 @@ def remove_irrelevant_label(batch_labels, class_name_dict):
 	batch_labels = tf.constant(tmp)
 
 	return batch_labels
+
