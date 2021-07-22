@@ -201,3 +201,15 @@ def remove_irrelevant_label(batch_labels, class_name_dict):
 	batch_labels = tf.constant(tmp)
 
 	return batch_labels
+
+
+def compute_accuracy(predict, cell_size, num_classes, boxes_per_cell):
+	predict_boxes = predict[:, :, num_classes + boxes_per_cell:]
+	predict_boxes = tf.reshape(predict_boxes, [cell_size, cell_size, boxes_per_cell, 4])
+
+
+		
+	iou_predict_truth = iou(predict_boxes, label[0:4])
+	return iou_predict_truth
+
+# pred_iou = compute_accuracy(predict[0], label, cell_size, num_classes, boxes_per_cell)

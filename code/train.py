@@ -18,7 +18,8 @@ from utils import (draw_bounding_box_and_label_info,
 				   dir_setting,
 				   save_checkpoint,
 				   set_checkpoint_manager,
-				   remove_irrelevant_label)
+				   remove_irrelevant_label,
+				   compute_accuracy)
 
 # flags instance로 hyper parameters setting
 flags.DEFINE_string('checkpoint_path', default='saved_model', help='path to a directory to save model checkpoints during training')
@@ -267,6 +268,8 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 			box_w = label[2]
 			box_h = label[3]
 			class_label = label[4]
+
+			
 		  
 			# add ground-turth bounding box dict list
 			# 특정 class에만 ground truth bounding box information을 draw
@@ -306,6 +309,8 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 				confidence_bounding_box['class_name'],
 				confidence_bounding_box['confidence'],
 				color_list[cat_class_to_label_dict[confidence_bounding_box['class_name']]])
+			
+			pred_iou = compute_accuracy(predict[0], cell_size, num_classes, boxes_per_cell)
 	 
 
 		# left : ground-truth, right : prediction
