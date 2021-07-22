@@ -1,6 +1,8 @@
-validation, test image 비교에서 Bbox를 표시할 때 1개만 하는것이 아닌, confidence가 충분히 높은 object는 모두 Bbox로 표시하도록 했다.
+**validation, test image 비교에서 Bbox를 표시할 때 1개만 하는것이 아닌, confidence가 충분히 높은 object는 모두 Bbox로 표시하도록 했다.**
 
 
+
+### improvement
 
 기존의 `find_max_confidence_bounding_box`라는 function에서 `find_enough_confidence_bounding_box` 라는 function으로 code를 수정했다.
 

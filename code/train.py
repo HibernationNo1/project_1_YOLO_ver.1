@@ -46,7 +46,7 @@ cat_class_to_label_dict = {v: k for k, v in cat_label_dict.items()}
 from dataset import class_name_dict  
 # class_name_dict = { 7: "cat", 9:"cow" }
 
-dir_name = 'remove_irrelevant_label'
+dir_name = 'tmp'
 
 # 이전에 했던 training을 다시 시작하거나 처음 진행할 때 False, 계속 이어서 할 땐 True 
 CONTINUE_LEARNING = False 
@@ -356,13 +356,7 @@ def main(_):
 			batch_bbox = tf.squeeze(batch_bbox, axis=1)
 			batch_labels = tf.squeeze(batch_labels, axis=1)
 
-<<<<<<< HEAD
-			#import sys
-			#print(batch_labels)
-			#sys.exit()
-=======
 			batch_labels = remove_irrelevant_label(batch_labels, class_name_dict)
->>>>>>> convert_element_of_class_labels
 
 			# run optimization and compute loss
 			(total_loss, 

@@ -1,8 +1,12 @@
-labels에서 target class외의 모든 label을 0으로 만들어 학습 효율 개선
+**labels에서 target class외의 모든 label을 loss계산에서 제외하여 학습 효율 개선**
 
 
 
 dataset.py의 `load_pascal_voc_dataset`에서 사용한 `filter`의 `predicate` function의 동작은 target class object가 하나라도 포함 된 data는 모두 추려낸다. 이 과정에서 target class가 아닌 class의 object도 포함된 data가 있는데, 이러한 object는 학습 목표과 관련이 없는 label이기 때문에 loss를 높히는 원인이 된다고 생각했다. 
+
+
+
+### improvement
 
 해결 방법으로, class_labels안의 value중, target class외의 모든 element를 0으로 만드는 function을 정의했다.
 
@@ -47,7 +51,9 @@ def remove_irrelevant_label(batch_labels, class_name_dict):
 
 `object_num`의 기준을 class_labels로 결정하면 자연스럽게 irrelevant한 object에 대한 coordnate와 width, height도 추가되지 않기 때문에 loss가 줄어들게 된다.
 
-**Considerations**
+
+
+##### Considerations
 
 `class_labels == [0 7 0 0 0 0]`  또는  `class_labels == [0 7 0 9 0 0]` 와 같이 앞의 index에 위치한 element가 0이 있는 `class_labels` 일 경우, labels initialize 과정에서 for문의 iteration 횟수가 부족해 labeling이 제대로 되지 않는 경우가 발생할 수 있다.
 
