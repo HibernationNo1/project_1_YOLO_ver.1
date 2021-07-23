@@ -1,8 +1,14 @@
 import tensorflow as tf
 import numpy as np
 from utils import iou
+
 from dataset import class_name_dict
 # class_name_dict = { 7: "cat", 9:"cow" }
+def class_loss_one_hot(num_classes):
+	index_list = [i for i in range(num_classes)]
+	P_one_hot = (tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32))
+	return P_one_hot
+
 
 def yolo_loss(predict,
 			  labels,
@@ -15,8 +21,8 @@ def yolo_loss(predict,
 			  coord_scale,
 			  object_scale,
 			  noobject_scale,
-			  class_scale
-			  ):
+			  class_scale,
+			  P_one_hot):
 
 	# parse only coordinate vector
 	# predict의 shape [tf.shape(predict)[0], cell_size, cell_size, num_classes + 5 * boxes_per_cell]
@@ -53,16 +59,14 @@ def yolo_loss(predict,
 	C = iou_predict_truth
 	pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell] 
 
-	index_list = [i for i in range(num_classes)]		
-	P_one_hot = (tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32))*10
 
+	# set class_loss information(probability, 특정 class일 확률)
 	P = 0.0
 	for i in range(num_classes):
 		if label[4] == list(class_name_dict.keys())[i]:
 			P = P_one_hot[i]
 
 	pred_P = predict[:, :, 0:num_classes] 
-
 
 	# find object exists cell mask
 	object_exists_cell = np.zeros([cell_size, cell_size, 1])
