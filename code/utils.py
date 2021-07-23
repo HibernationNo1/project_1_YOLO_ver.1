@@ -115,21 +115,18 @@ def draw_bounding_box_and_label_info(frame, x_min, y_min, x_max, y_max, label, c
 				lineType)
     
 
-def find_enough_confidence_bounding_box(bounding_box_info_list, tensorboard_log_path, step):
+def find_enough_confidence_bounding_box(bounding_box_info_list, tensorboard_log_path, step, validation_image_index):
 	bounding_box_info_list_sorted = sorted(bounding_box_info_list,
 											key=itemgetter('confidence_score'),
 											reverse=True)
 	confidence_bounding_box_list = list()
 
 	# 가장 큰 confidence_score를 저장
-	confidence_score_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/confidence')
-	with confidence_score_writer.as_default():
-		tf.summary.scalar('max_confidence_score_writer', bounding_box_info_list_sorted[0], step=int(step))
-		print(bounding_box_info_list_sorted[0])
+	print(f'image index:{validation_image_index},  confidence_score: {bounding_box_info_list_sorted[0]["confidence_score"]}')
 	
 	# confidence값이 0.5 이상인 Bbox는 모두 표현
 	for index, features in enumerate(bounding_box_info_list_sorted):
-		if bounding_box_info_list_sorted[index]['confidence_score'] > 0.3:
+		if bounding_box_info_list_sorted[index]['confidence_score'] > 0.5:
 			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
 
 	return confidence_bounding_box_list
@@ -237,14 +234,18 @@ def x_y_center_sort(labels, taget):
 	
 	return labels
 
-def performance_evaluation(confidence_bounding_box_list, object_num, labels, class_name_to_label_dict):
+def performance_evaluation(confidence_bounding_box_list,
+						   object_num,
+						   labels,
+						   class_name_to_label_dict,
+						   validation_image_index):
 
 	x_center_sort_labels = None
 	y_center_sort_labels = None
 	x_center_sort_pred = None
 	y_center_sort_pred = None
 
-	pred_list = np.zetos(shape =(object_num, 3))
+	pred_list = np.zeros(shape =(object_num, 3))
 
 	correct_answers_class_num = 0.0  # classification accuracy 계산을 위한 값
 	success_detection_num = 0.0 # perfect detection accuracy 계산을 위한 값
@@ -252,7 +253,7 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 
 	# label object 중 detection한 object의 비율
 	detection_rate = len(confidence_bounding_box_list)/object_num
-
+	print(f"image_index: {validation_image_index}", end=' ')
 	if detection_rate == 1: # label과 같은 수의 object를 detection했을 때
 		success_detection_num +=1
 		print(f"detection_rate = {detection_rate}")
@@ -284,7 +285,8 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 			for x_each_object_num in range(object_num): 
 				x_center_sort_label = x_center_sort_labels[x_each_object_num, :]
 				x_center_sort_pred = x_center_sort_pred_list[x_each_object_num, :]
-				if int(x_center_sort_label[4]) == int(x_center_sort_pred): # class가 동일하면 pass
+				
+				if int(x_center_sort_label[4]) == int(x_center_sort_pred[3]): # class가 동일하면 pass
 					pass
 				else : 
 					break # 하나라도 다르면 break
@@ -294,7 +296,7 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 					for y_each_object_num in range(object_num):
 						y_center_sort_label = y_center_sort_labels[y_each_object_num, :]
 						y_center_sort_pred = y_center_sort_pred_list[y_each_object_num, :]
-						if int(y_center_sort_label[4]) == int(y_center_sort_pred):
+						if int(y_center_sort_label[4]) == int(y_center_sort_pred[3]):
 							pass
 						else : 
 							break # 하나라도 다르면 break	

@@ -49,12 +49,8 @@ from dataset import class_name_dict
 # class_name_dict = { 7: "cat", 9:"cow" }
 class_name_to_label_dict = {v: k for k, v in class_name_dict.items()}
 
-
-#from loss import class_loss_one_hot
-#P_one_hot = class_loss_one_hot(class_name_dict.keys())
-
 from loss import class_loss_one_hot
-P_one_hot = class_loss_one_hot(class_name_dict.keys())
+P_one_hot = class_loss_one_hot(int(len(class_name_dict.keys())))
 
 dir_name = 'train3'
 
@@ -62,12 +58,12 @@ dir_name = 'train3'
 CONTINUE_LEARNING = False 
 
 
-# set configuration value
+# set configuration valuey
 batch_size = 32 	# original paper : 64
 input_width = 224 	# original paper : 448
 input_height = 224 	# original paper : 448
 cell_size = 7
-num_classes = len(class_name_dict.keys()) 	# original paper : 20
+num_classes = int(len(class_name_dict.keys())) 	# original paper : 20
 boxes_per_cell = 2
 
 # set color_list for drawings
@@ -306,7 +302,10 @@ def save_validation_result(model,
 		 
 		# find one max confidence bounding box
 		# Non-maximum suppression을 사용하지 않고, 약식으로 진행 (confidence 상위 두 개의 bounding box 선택)
-		confidence_bounding_box_list = find_enough_confidence_bounding_box(bounding_box_info_list, FLAGS.tensorboard_log_path, ckpt.step)
+		confidence_bounding_box_list = find_enough_confidence_bounding_box(bounding_box_info_list,
+																		   FLAGS.tensorboard_log_path,
+																		   ckpt.step,
+																		   validation_image_index)
 
 
 		# draw prediction (image 위에 bounding box 표현)
@@ -332,7 +331,11 @@ def save_validation_result(model,
 		with validation_summary_writer.as_default():
 			tf.summary.image('validation_image_'+str(validation_image_index), drawing_image, step=int(ckpt.step))
 		
-		detection_num, class_num, detection_rate = performance_evaluation(confidence_bounding_box_list, object_num, labels, class_name_to_label_dict)
+		detection_num, class_num, detection_rate = performance_evaluation(confidence_bounding_box_list,
+																		  object_num,
+																		  labels,
+																		  class_name_to_label_dict,
+																		  validation_image_index)
 		success_detection_num += detection_num
 		correct_answers_class_num += class_num
 		detection_rate_sum +=detection_rate
@@ -342,13 +345,16 @@ def save_validation_result(model,
 	classification_accuracy = correct_answers_class_num / num_visualize_image 	# 정확한 classicifiation이 이루어진 비율
 	
 	with average_detection_rate_writer.as_default():
+		print(f"average_detection_rate: {average_detection_rate}")
 		tf.summary.scalar('average_detection_rate', average_detection_rate, step=int(ckpt.step))
 
 	with perfect_detection_accuracy_writer.as_default():
+		print(f"perfect_detection_accuracy: {perfect_detection_accuracy}")
 		tf.summary.scalar('perfect_detection_accuracy', perfect_detection_accuracy, step=int(ckpt.step))
 
 	with classification_accuracy_writer.as_default():
-		tf.summary.scalar('classicifiation_accuracy', classification_accuracy, step=int(ckpt.step))
+		print(f"classification_accuracy: {classification_accuracy}")
+		tf.summary.scalar('classification_accuracy', classification_accuracy, step=int(ckpt.step))
 
     
     
