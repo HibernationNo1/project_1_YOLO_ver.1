@@ -106,7 +106,7 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 	x_center_sort_pred = None
 	y_center_sort_pred = None
 
-	pred_list = np.zetos(shape =(object_num, 3))
+	pred_list = np.zeros(shape =(object_num, 3))
 
 	correct_answers_class_num = 0.0  # classification accuracy 계산을 위한 값
 	success_detection_num = 0.0 # perfect detection accuracy 계산을 위한 값
@@ -146,7 +146,7 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 			for x_each_object_num in range(object_num): 
 				x_center_sort_label = x_center_sort_labels[x_each_object_num, :]
 				x_center_sort_pred = x_center_sort_pred_list[x_each_object_num, :]
-				if int(x_center_sort_label[4]) == int(x_center_sort_pred): # class가 동일하면 pass
+				if int(x_center_sort_label[4]) == int(x_center_sort_pred[3]): # class가 동일하면 pass
 					pass
 				else : 
 					break # 하나라도 다르면 break
@@ -156,7 +156,7 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 					for y_each_object_num in range(object_num):
 						y_center_sort_label = y_center_sort_labels[y_each_object_num, :]
 						y_center_sort_pred = y_center_sort_pred_list[y_each_object_num, :]
-						if int(y_center_sort_label[4]) == int(y_center_sort_pred):
+						if int(y_center_sort_label[4]) == int(y_center_sort_pred[3]):
 							pass
 						else : 
 							break # 하나라도 다르면 break	
