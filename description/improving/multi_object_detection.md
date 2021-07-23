@@ -6,6 +6,8 @@ dataset.py의 load_pascal_voc_dataset에서 사용된 filter함수를 위해 정
 
 
 
+### improvement
+
 1. dataset에서 가져오는 class를 cat에서 cow로 변경하기
 
 ```python
@@ -47,7 +49,7 @@ def predicate(x):  # x는 전체 dataset
 
 
 
-
+**최종**
 
 3. dataset에서 label dictionary를 만들어 key값을 통해 특정 label이 포함된 모든 data를 추려내도록
 

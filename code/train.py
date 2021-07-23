@@ -53,6 +53,8 @@ class_name_to_label_dict = {v: k for k, v in class_name_dict.items()}
 #from loss import class_loss_one_hot
 #P_one_hot = class_loss_one_hot(class_name_dict.keys())
 
+from loss import class_loss_one_hot
+P_one_hot = class_loss_one_hot(class_name_dict.keys())
 
 dir_name = 'train3'
 
@@ -117,7 +119,8 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels):
 								   				 coord_scale,
 								   				 object_scale,
 								   				 noobject_scale,
-								   				 class_scale )
+								   				 class_scale,
+												 P_one_hot )
 			
             # 각각 전체의 batch에 대해서 loss 합산
 			total_loss = total_loss+ each_object_total_loss
@@ -303,7 +306,8 @@ def save_validation_result(model,
 		 
 		# find one max confidence bounding box
 		# Non-maximum suppression을 사용하지 않고, 약식으로 진행 (confidence 상위 두 개의 bounding box 선택)
-		confidence_bounding_box_list = find_enough_confidence_bounding_box(bounding_box_info_list)
+		confidence_bounding_box_list = find_enough_confidence_bounding_box(bounding_box_info_list, FLAGS.tensorboard_log_path, ckpt.step)
+
 
 		# draw prediction (image 위에 bounding box 표현)
 		for confidence_bounding_box in confidence_bounding_box_list:
