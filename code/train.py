@@ -42,11 +42,15 @@ label_to_class_dict = {
 }
 cat_class_to_label_dict = {v: k for k, v in label_to_class_dict.items()}
 
-# class_name_dict을 dataset.py에서 선언하는 이유 : teain.py에서 선언하면 import 순환 이슈가 발생한다.
+# class_name_dict을 dataset.py에서 선언하는 이유 : train.py에서 선언하면 import 순환 이슈가 발생한다.
 from dataset import class_name_dict  
 # class_name_dict = { 7: "cat", 9:"cow" }
 
-dir_name = '3_remove_irrelevant_label'
+from loss import class_loss_one_hot
+P_one_hot = class_loss_one_hot(class_name_dict.keys())
+
+
+dir_name = 'train3'
 
 # 이전에 했던 training을 다시 시작하거나 처음 진행할 때 False, 계속 이어서 할 땐 True 
 CONTINUE_LEARNING = False 
@@ -109,7 +113,8 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels):
 								   				 coord_scale,
 								   				 object_scale,
 								   				 noobject_scale,
-								   				 class_scale )
+								   				 class_scale,
+												 P_one_hot )
 			
             # 각각 전체의 batch에 대해서 loss 합산
 			total_loss = total_loss+ each_object_total_loss
@@ -224,7 +229,7 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 
 		confidence_score = np.zeros_like(confidence_boxes[:, :, :, 0])
 		for i in range(boxes_per_cell):
-			confidence_score[:, :, i] = (confidence_boxes[:, :, i, 0] * class_prediction_value)/10
+			confidence_score[:, :, i] = (confidence_boxes[:, :, i, 0] * class_prediction_value)
 		
 		# make prediction bounding box list
 		bounding_box_info_list = []
@@ -286,7 +291,8 @@ def save_validation_result(model, ckpt, validation_summary_writer, num_visualize
 		 
 		# find one max confidence bounding box
 		# Non-maximum suppression을 사용하지 않고, 약식으로 진행 (confidence 상위 두 개의 bounding box 선택)
-		confidence_bounding_box_list = find_enough_confidence_bounding_box(bounding_box_info_list)
+		confidence_bounding_box_list = find_enough_confidence_bounding_box(bounding_box_info_list, FLAGS.tensorboard_log_path, ckpt.step)
+
 
 		# draw prediction (image 위에 bounding box 표현)
 		for confidence_bounding_box in confidence_bounding_box_list:

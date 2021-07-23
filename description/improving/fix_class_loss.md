@@ -6,15 +6,21 @@ loss.py 의 `yolo_loss` function에서 class loss를 구하는 과정에 오류�
 
 1. MSE에 사용되는 값 중 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되는데, 
 
-   이 때 `tf.one_hot`의 첫 번째 argument는 0부터 1의 scale로 증가하는 count container이여야 한다.
+   이 때 `tf.one_hot`의 첫 번째 argument는 모든 label class가 할당되어야 한다.
 
-   하지만 `label[4]`는 특정 class의 number값을 가지고 있어 반환값이 [0, 0] 으로 나오는 것을 확인했다.
+   하지만 `label[4]`는 특정 단일 class의 label number값을 가지고 있어 반환값이 [0, 0] 으로 나오는 것을 확인했다.
 
-   > num_class가 2일 때 `P` 의 값은 [0, 1] 또는 [1, 0]의 값이 사용되어야 한다.
+   (tf.one_hot은 단일 label에 적용되는것이 아닌, 전체 label data에 적용되어야 한다고 알고있음)
+
+   > num_class가 2일 때 `P` 의 값은 [0, 1] 또는 [1, 0]의 값이,
+   >
+   > num_class가 3일 때 `P` 의 값은 [0, 0, 1] 또는 [0, 1, 0] 또는 [1, 0, 0]의 값이 사용되어야 한다고 생각한다.
 
 2. MSE에 사용되는 값 중 prediction값으로 사용되는 `pred_P`의 각 element는 그 합이 1이여야 하는데
 
-   (각 calss에 대한 probability를 표현하기 때문), 각각의 element의 절대값이 1을 넘어감을 확인했다.
+   (각 calss에 대한 probability를 표현하기 때문), 각각의 element의 절대값이 1을 넘어가는(probability가 아닌) 것을 확인했다.
+
+   `pred_P[:, :, 0]`
 
    ```
    pred_P:  tf.Tensor(
@@ -77,23 +83,30 @@ loss.py 의 `yolo_loss` function에서 class loss를 구하는 과정에 오류�
 
    
 
-
-
-
-
 ### Improving
 
 
 
 #### fix compute method for P
 
-각 label값에 알맞게 one-hot encoding 된 값이 할당될 수 있도록 계산 과정을 수정했다.
+각 label값에 알맞게 one-hot encoding 된 값이 할당될 수 있도록 function을 추가했다.
 
 - `tf.one_hot`의 첫 번째 argument에 `num_classes` 만큼의 count number를 가진 list를 사용
 
   ```python
-  index_list = [i for i in range(num_classes)]		
-  P_one_hot = tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32) 
+  # loss.py
+  def class_loss_one_hot(num_classes):
+  	index_list = [i for i in range(num_classes)]
+  	P_one_hot = (tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32))
+  	return P_one_hot
+  ```
+
+  해당 function은 loss.py에서 정의했지만, 사용시 학습 속도가 저하되지 않기 위해 가장 상위 계층인 main.py의 global에 instance를 선언했다.
+
+  ```python
+  # main.py
+  from loss import class_loss_one_hot
+  P_one_hot = class_loss_one_hot(class_name_dict.keys())
   ```
 
   
@@ -101,6 +114,7 @@ loss.py 의 `yolo_loss` function에서 class loss를 구하는 과정에 오류�
 - `label[4]`값에 알맞게 one_hot encoding이 적용된 정답값을 P에 할당
 
   ```python
+  # loss.py  def yolo_loss
   for i in range(num_classes):
   	if label[4] == list(class_name_dict.keys())[i]:
   		P = P_one_hot[i]
@@ -143,9 +157,7 @@ P = tf.one_hot(tf.cast(label[4], tf.int32), num_classes, dtype=tf.float32)
 변경 후 `P`
 
 ````python
-index_list = [i for i in range(num_classes)]		
-P_one_hot = tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32) 
-
+p = 0.0
 for i in range(num_classes):
 	if label[4] == list(class_name_dict.keys())[i]:
 		P = P_one_hot[i]
@@ -189,4 +201,6 @@ for i in range(num_classes):
   ```
 
   학습 결과
+
+  class_loss가 더 잘 안떨어지는 모습을 보였다.
 

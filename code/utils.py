@@ -107,15 +107,21 @@ def draw_bounding_box_and_label_info(frame, x_min, y_min, x_max, y_max, label, c
 				lineType)
     
 
-def find_enough_confidence_bounding_box(bounding_box_info_list):
+def find_enough_confidence_bounding_box(bounding_box_info_list, tensorboard_log_path, step):
 	bounding_box_info_list_sorted = sorted(bounding_box_info_list,
 											key=itemgetter('confidence_score'),
 											reverse=True)
 	confidence_bounding_box_list = list()
 
+	# 가장 큰 confidence_score를 저장
+	confidence_score_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/confidence')
+	with confidence_score_writer.as_default():
+		tf.summary.scalar('max_confidence_score_writer', bounding_box_info_list_sorted[0], step=int(step))
+		print(bounding_box_info_list_sorted[0])
+	
 	# confidence값이 0.5 이상인 Bbox는 모두 표현
 	for index, features in enumerate(bounding_box_info_list_sorted):
-		if bounding_box_info_list_sorted[index]['confidence_score'] > 0.5:
+		if bounding_box_info_list_sorted[index]['confidence_score'] > 0.3:
 			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
 
 	return confidence_bounding_box_list

@@ -8,9 +8,7 @@ Bbox에 표현하는 confidence score을 predicted object confidence를 그대�
 
 
 
-confidence score = (predicted object confidence) * (class probability)/10 로 표현했다.
-
-> 10을 나눠주는 이유 : class_loss의 정확한 학습을 위해 class probability label값을 0~1 의 scale에서 0~10로 변경했기 때문에 class probability를 다시 scale을 0~1로 낮춰주기 위함이다.
+confidence score = (predicted object confidence) * (class probability) 로 표현했다.
 
 
 
@@ -60,7 +58,7 @@ evaluate.py 의 `main` function에 부분적으로 code의 수정을 주었다.
   
   		confidence_score = np.zeros_like(confidence_boxes[:, :, :, 0])
   		for i in range(boxes_per_cell):
-  			confidence_score[:, :, i] = (confidence_boxes[:, :, i, 0] * class_prediction_value)/10
+  			confidence_score[:, :, i] = (confidence_boxes[:, :, i, 0] * class_prediction_value)
   		
   		# make prediction bounding box list
   		bounding_box_info_list = []
@@ -78,4 +76,29 @@ evaluate.py 의 `main` function에 부분적으로 code의 수정을 주었다.
   ```
 
   
+
+가장 큰 confidence_score를 기록해보았다.
+
+utils.py의 `find_enough_confidence_bounding_box` 수정
+
+```python
+def find_enough_confidence_bounding_box(bounding_box_info_list, tensorboard_log_path, step):
+	bounding_box_info_list_sorted = sorted(bounding_box_info_list,
+											key=itemgetter('confidence_score'),
+											reverse=True)
+	confidence_bounding_box_list = list()
+
+	# 가장 큰 confidence_score를 저장
+	confidence_score_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/confidence')
+	with confidence_score_writer.as_default():
+		tf.summary.scalar('max_confidence_score_writer', bounding_box_info_list_sorted[0], step=int(step))
+		print(bounding_box_info_list_sorted[0])
+	
+	# confidence값이 0.5 이상인 Bbox는 모두 표현
+	for index, features in enumerate(bounding_box_info_list_sorted):
+		if bounding_box_info_list_sorted[index]['confidence_score'] > 0.3:
+			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
+
+	return confidence_bounding_box_list
+```
 
