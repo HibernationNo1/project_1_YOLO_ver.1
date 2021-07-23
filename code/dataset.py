@@ -8,7 +8,7 @@ class_name_dict = {
 	7: "cat", 9:"cow"
 }
 
-def predicate(x):  # x는 전체 dataset
+def predicate(x):  # x는 하나의 data.
 	label = x['objects']['label']
 	
 	# 7또는 9라는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
