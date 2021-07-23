@@ -41,7 +41,10 @@ def dir_setting(dir_name,
 
 	# set tensorboard log
 	train_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/train')
-	validation_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/validation')  
+	validation_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/validation')
+	average_detection_rate_writer = tf.summary.create_file_writer(tensorboard_log_path +  'average_detection_rate')
+	perfect_detection_accuracy_writer = tf.summary.create_file_writer(tensorboard_log_path +  'perfect_detection_accuracy')
+	classification_accuracy_writer = tf.summary.create_file_writer(tensorboard_log_path +  'classification_accuracy')  
 
 	# pass if the path exist. or not, create directory on path
 	if not os.path.isdir(model_path):
@@ -49,7 +52,12 @@ def dir_setting(dir_name,
 		os.mkdir(checkpoint_path)
 
 
-	return checkpoint_path, train_summary_writer, validation_summary_writer
+	return (checkpoint_path,
+			train_summary_writer,
+			validation_summary_writer,
+			average_detection_rate_writer, 
+			perfect_detection_accuracy_writer,
+			classification_accuracy_writer)
 
 
 def set_checkpoint_manager(input_height,
@@ -109,13 +117,13 @@ def draw_bounding_box_and_label_info(frame, x_min, y_min, x_max, y_max, label, c
 
 def find_enough_confidence_bounding_box(bounding_box_info_list):
 	bounding_box_info_list_sorted = sorted(bounding_box_info_list,
-											key=itemgetter('confidence'),
+											key=itemgetter('confidence_score'),
 											reverse=True)
 	confidence_bounding_box_list = list()
 
 	# confidence값이 0.5 이상인 Bbox는 모두 표현
 	for index, features in enumerate(bounding_box_info_list_sorted):
-		if bounding_box_info_list_sorted[index]['confidence'] > 0.5:
+		if bounding_box_info_list_sorted[index]['confidence_score'] > 0.5:
 			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
 
 	return confidence_bounding_box_list
@@ -128,7 +136,7 @@ def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name,
 	bounding_box_info['right'] = int(xcenter + (box_w / 2))
 	bounding_box_info['bottom'] = int(ycenter - (box_h / 2))
 	bounding_box_info['class_name'] = class_name
-	bounding_box_info['confidence'] = confidence
+	bounding_box_info['confidence_score'] = confidence
 
 	return bounding_box_info
 
@@ -138,27 +146,29 @@ def iou(yolo_pred_boxes, ground_truth_boxes):
 	boxes1 = yolo_pred_boxes
 	boxes2 = ground_truth_boxes
 
-	# yolo_pred_boxes의 중앙 좌표  0:x, 1:y, 2:w, 3:y
+	# yolo_pred_boxes의 0:xcenter, 1:ycenter, 2:w, 3:h
+	# x-(w/2) == Bbox의 좌측 하단 꼭지점, y+(h/2) == Bbox의 우측 상단 꼭지점
+	# boxes1에는 [xmin, ymin, xmax, ymax] 사각형 꼭지점의 x, y좌표 할당
 	boxes1 = tf.stack([boxes1[:, :, :, 0] - boxes1[:, :, :, 2] / 2, boxes1[:, :, :, 1] - boxes1[:, :, :, 3] / 2,
 					   boxes1[:, :, :, 0] + boxes1[:, :, :, 2] / 2, boxes1[:, :, :, 1] + boxes1[:, :, :, 3] / 2])
 	boxes1 = tf.transpose(boxes1, [1, 2, 3, 0]) 	# shape을 [4 7 7 2] 에서 [7 7 2 4]로 변경
 
-	# ground_truth_boxes의 중앙 좌표
+	
+	# ground_truth_boxes의 0:xcenter, 1:ycenter, 2:w, 3:h
 	boxes2 = tf.stack([boxes2[0] - boxes2[2] / 2, boxes2[1] - boxes2[3] / 2,
 					   boxes2[0] + boxes2[2] / 2, boxes2[1] + boxes2[3] / 2])
 	boxes2 = tf.cast(boxes2, tf.float32)
-	# tf.shape(boxes1) == [4]
 
 	# calculate the left up point
-	lu = tf.maximum(boxes1[:, :, :, 0:2], boxes2[0:2])  # 두 Bbox 중 x, y의 최대값(전체 영역의 우측 상단 꼭지점 좌표)
-	rd = tf.minimum(boxes1[:, :, :, 2:], boxes2[2:])	# 두 Bbox 중 w, h의 최소값(교집합 영역의 우측 상단 꼭지점 좌표)
-  
-	# intersection
+	lu = tf.maximum(boxes1[:, :, :, 0:2], boxes2[0:2])  # 교집합 영역의 우측 상단 꼭지점 좌표
+	rd = tf.minimum(boxes1[:, :, :, 2:], boxes2[2:])	# 교집합 영역의 좌측 하단 꼭지점 좌표
+
+	# intersectiony
 	intersection = rd - lu  
 
-	inter_square = intersection[:, :, :, 0] * intersection[:, :, :, 1] # 모든 x좌표 * y좌표
+	inter_square = intersection[:, :, :, 0] * intersection[:, :, :, 1] # x크기 * y크기 == 넓역
 
-	# 위에서 계산된 intersection 영역 중에서 0인 영역만이 진짜 교집합 영역
+	# 위에서 계산된 intersection 영역 중에서 0보다 큰 영역만이 진짜 교집합 영역(음수 * 음수)
 	mask = tf.cast(intersection[:, :, :, 0] > 0, tf.float32) * tf.cast(intersection[:, :, :, 1] > 0, tf.float32)
 
 	# 각 cell 마다, 그리고 각 Bbox마다 교집합 영역 계산
@@ -201,3 +211,95 @@ def remove_irrelevant_label(batch_labels, class_name_dict):
 	batch_labels = tf.constant(tmp)
 
 	return batch_labels
+
+def x_y_center_sort(labels, taget):
+
+	tmp = np.zeros_like(labels)
+	if taget == "x":
+		label = list(np.array(labels[:, 0]))
+	elif taget == "y":
+		label = list(np.array(labels[:, 1]))
+
+	origin_label = label.copy()
+	label.sort()
+	for i_index, i_value in enumerate(label):
+		for j_index, j_value in enumerate(origin_label):
+			if i_value == j_value:
+				tmp[i_index] = labels[j_index]
+				continue
+	labels = tf.constant(tmp)
+	
+	return labels
+
+def performance_evaluation(confidence_bounding_box_list, object_num, labels, class_name_to_label_dict):
+
+	x_center_sort_labels = None
+	y_center_sort_labels = None
+	x_center_sort_pred = None
+	y_center_sort_pred = None
+
+	pred_list = np.zetos(shape =(object_num, 3))
+
+	correct_answers_class_num = 0.0  # classification accuracy 계산을 위한 값
+	success_detection_num = 0.0 # perfect detection accuracy 계산을 위한 값
+
+
+	# label object 중 detection한 object의 비율
+	detection_rate = len(confidence_bounding_box_list)/object_num
+
+	if detection_rate == 1: # label과 같은 수의 object를 detection했을 때
+		success_detection_num +=1
+		print(f"detection_rate = {detection_rate}")
+
+		# detection_rate == 100% 일 때 correct_answers_class_num 계산 
+		for each_object_num in range(object_num): 
+			label = labels[each_object_num, :] 
+			
+			confidence_bounding_box = confidence_bounding_box_list[each_object_num]
+			# compute x, y center coordinate 
+			xcenter = int((confidence_bounding_box['left'] + confidence_bounding_box['right'] - 1.0) /2) # 1.0은 int()감안
+			ycenter = int((confidence_bounding_box['top'] + confidence_bounding_box['bottom'] - 1.0) /2) 
+			
+			pred_list[each_object_num][0] = xcenter
+			pred_list[each_object_num][1] = ycenter
+			pred_list[each_object_num][2] = class_name_to_label_dict[str(confidence_bounding_box_list[0]['class_name'])] # pred_class_num
+
+		if object_num == 1:
+			# label class와 예측한 class가 같다면
+			if int(label[0][4]) == class_name_to_label_dict[str(confidence_bounding_box_list[0]['class_name'])]:
+				correct_answers_class_num +=1
+		else:  # image에 object가 2개 이상일 때
+			x_center_sort_labels = x_y_center_sort(labels, "x") # x좌표 기준으로 정렬한 labels
+			y_center_sort_labels = x_y_center_sort(labels, "y") # y좌표 기준으로 정렬한 labels
+			x_center_sort_pred_list = x_y_center_sort(pred_list, "x")  	# x좌표 기준으로 정렬한 pred_list
+			y_center_sort_pred_list = x_y_center_sort(pred_list, "y")	# y좌표 기준으로 정렬한 pred_list
+
+			# x좌표가 낮은 위치의 image부터 큰 위치의 image까지 detected image의 class가 동일지 확인
+			for x_each_object_num in range(object_num): 
+				x_center_sort_label = x_center_sort_labels[x_each_object_num, :]
+				x_center_sort_pred = x_center_sort_pred_list[x_each_object_num, :]
+				if int(x_center_sort_label[4]) == int(x_center_sort_pred): # class가 동일하면 pass
+					pass
+				else : 
+					break # 하나라도 다르면 break
+
+				if x_each_object_num == object_num-1: # x좌표 기준으로 위 조건이 만족한다면
+					# y좌표가 낮은 위치의 image부터 큰 위치의 image까지 detected image의 calss가 동일지 확인
+					for y_each_object_num in range(object_num):
+						y_center_sort_label = y_center_sort_labels[y_each_object_num, :]
+						y_center_sort_pred = y_center_sort_pred_list[y_each_object_num, :]
+						if int(y_center_sort_label[4]) == int(y_center_sort_pred):
+							pass
+						else : 
+							break # 하나라도 다르면 break	
+
+						if x_each_object_num == object_num-1:   # y좌표 기준으로도 위 조건이 만족한다면 
+							correct_answers_class_num +=1
+	elif detection_rate > 1: # label보다 더 많은 object를 detection했을 때
+		print("Over detection")
+	else :
+		print(f"detection_rate = {detection_rate}")
+
+		
+	return success_detection_num, correct_answers_class_num, detection_rate
+

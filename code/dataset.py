@@ -92,7 +92,7 @@ def process_each_ground_truth(original_image,
 	# image의 x, y center coordinate를 계산하기 위해 rate compute
 	width_rate = input_width * 1.0 / original_w 
 	height_rate = input_height * 1.0 / original_h
-	
+
 	# YOLO input size로 image resizing
 	image = tf.image.resize(image, [input_height, input_width])
 
@@ -112,6 +112,7 @@ def process_each_ground_truth(original_image,
 	labels = [[0, 0, 0, 0, 0]] * object_num # (x, y, w, h, class_number) * object_num 
     
 	for i in range(object_num):
+		# 0~1 사이로 표현되어있던 각 coordinate를 pixel단위의 coordinate로 표현
 		xmin = bbox[i][1] * original_w
 		ymin = bbox[i][0] * original_h
 		xmax = bbox[i][3] * original_w
@@ -119,14 +120,14 @@ def process_each_ground_truth(original_image,
 
 		class_num = class_labels[i] # 실제 class labels
 
-		# set center coordinate 
+		# resizing 된 image에 맞는 center coordinate 
 		xcenter = (xmin + xmax) * 1.0 / 2 * width_rate 
 		ycenter = (ymin + ymax) * 1.0 / 2 * height_rate
 
-		# bounding box의 width, height 
+		# resizing 된 image에 맞는 bounding box의 width, height 
 		box_w = (xmax - xmin) * width_rate
 		box_h = (ymax - ymin) * height_rate
-		
+
 		# YOLO format형태의 5가지 labels 완성
 		labels[i] = [xcenter, ycenter, box_w, box_h, class_num]
 
