@@ -35,6 +35,7 @@ def yolo_loss(predict,
 	labels = np.array(labels) 
 	labels = labels.astype('float32')
 	label = labels[each_object_num, :]
+
 	xcenter = label[0]
 	ycenter = label[1]
 	sqrt_w = tf.sqrt(label[2])
@@ -55,6 +56,7 @@ def yolo_loss(predict,
 	index_list = [i for i in range(num_classes)]		
 	P_one_hot = (tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32))*10
 
+	P = 0.0
 	for i in range(num_classes):
 		if label[4] == list(class_name_dict.keys())[i]:
 			P = P_one_hot[i]
