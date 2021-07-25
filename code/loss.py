@@ -22,7 +22,8 @@ def yolo_loss(predict,
 			  object_scale,
 			  noobject_scale,
 			  class_scale,
-			  P_one_hot):
+			  P_one_hot,
+			  class_loss_object):
 
 	# parse only coordinate vector
 	# predict의 shape [tf.shape(predict)[0], cell_size, cell_size, num_classes + 5 * boxes_per_cell]
@@ -68,6 +69,11 @@ def yolo_loss(predict,
 			P = P_one_hot[i]
 
 	pred_P = predict[:, :, 0:num_classes] 
+	temp_pred_P = np.zeros_like(pred_P)
+	for i in range(cell_size):
+			for j in range(cell_size):
+				temp_pred_P[i][j] = tf.nn.softmax(pred_P[i][j]) 
+	pred_P = tf.constant(temp_pred_P)
 
 	# find object exists cell mask
 	object_exists_cell = np.zeros([cell_size, cell_size, 1])
@@ -88,7 +94,7 @@ def yolo_loss(predict,
 	noobject_loss = tf.nn.l2_loss((1 - object_exists_cell) * (pred_C)) * noobject_scale
 
 	# class loss
-	class_loss = tf.nn.l2_loss(object_exists_cell * (pred_P - P)) * class_scale
+	class_loss = class_loss_object(P, pred_P)
 
 	# sum every loss
 	total_loss = coord_loss + object_loss + noobject_loss + class_loss
