@@ -11,8 +11,10 @@
   2. [ `pred_P`에 activation function 적용](#'modify compute method for pred_P')
 
   3. [modify class loss function](#class_loss_function)
-
 - modify object loss
+  1. label값 변경
+  2. `pred_C`에 activation function 적용
+  3. modify class loss function
 
 
 
@@ -20,7 +22,7 @@
 
 #### class_loss
 
-###### modify compute method for P
+##### modify compute method for P
 
 loss_function에서 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되는데, 
 
@@ -92,7 +94,7 @@ loss_function에서 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되
 
   
 
-변경 전 `P`
+**변경 전 `P`**
 
 ```python
 P = tf.one_hot(tf.cast(label[4], tf.int32), num_classes, dtype=tf.float32)
@@ -101,7 +103,7 @@ P = tf.one_hot(tf.cast(label[4], tf.int32), num_classes, dtype=tf.float32)
 
 
 
-변경 후 `P`
+**변경 후 `P`**
 
 ````python
 p = 0.0
@@ -114,7 +116,7 @@ for i in range(num_classes):
 
 
 
-###### modify compute method for pred_P
+##### modify compute method for pred_P
 
 `pred_P`의 값은 multi class에 대한 probability를 표현해야 하는데 그런 과정이 생략되어 있음을 확인했다.
 
@@ -126,7 +128,7 @@ for i in range(num_classes):
 
 
 
-변경 전 `pred_P`
+**변경 전 `pred_P`**
 
 ```python
 pred_P = predict[:, :, 0:num_classes] 
@@ -134,7 +136,7 @@ pred_P = predict[:, :, 0:num_classes]
 
 
 
-변경 후 `pred_P`
+**변경 후 `pred_P`**
 
 ```python
 pred_P = predict[:, :, 0:num_classes] 
@@ -149,7 +151,7 @@ pred_P = tf.constant(temp_pred_P)
 
 
 
-###### class_loss_function
+##### class_loss_function
 
 class loss는 예측한 특정 class에 대한 probability를 표현하기 때문에 사용되는 loss functiond은 MSE가 아닌 CategoricalCrossentropy가 적절하다고 판단했다.
 
@@ -167,3 +169,97 @@ class_loss = tf.nn.l2_loss(object_exists_cell * (pred_P - P)) * class_scale
 class_loss = object_exists_cell * class_scale * class_loss_object(P, pred_P)
 ```
 
+> class_loss_object는 train.py에서 선언된 CategoricalCrossentropy의 object이다.
+
+
+
+###  confidence_loss
+
+##### modify label value of confidence loss
+
+confidence loss의 label값은 `C`는 label Bbox와 predicted value간의 interception union을 사용했다.
+
+하지만 initial prediction value는 학습이 되지 않은 값이기 때문에 0에 가까운 값을 반환한다. 
+
+그렇기 때문에 학습의 처음부터 잘못된 loss값이 사용되는 것이다.
+
+이상적인 학습을 위한 confidence loss의 label값은 1이다. indicator function에 의해 object가 있는 cell에 대해서 confidence value는 반드시 1이기 때문이다.
+
+
+
+**변경 전 `c`**
+
+```python
+C = iou_predict_truth
+```
+
+
+
+**변경 후 `c`**
+
+```python
+C = 1
+```
+
+
+
+
+
+##### modify predicted value of confidence loss
+
+confidence loss = object_loss + noobject_loss이고, object loss에서 사용하는 label은 1,  noobject_loss에서 사용하는 label은 0이다.
+그리고 object_loss와 noobject_loss의 값의 범위는 0~1이 나와야 한다.(object가 있는지에 대한 probability이기때문이다.)
+그렇기 때문에 pred_C는 sigmoid function이 적용되어야 한다.
+
+이에 따라 pred_C의 계산 방법을 수정했다.
+
+
+
+**변경 전 `pred_C`**
+
+```python
+pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell]
+```
+
+
+
+**변경 후 `pred_C`**
+
+```python
+pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell]
+temp_pred_C = np.zeros_like(pred_C)
+for i in range(cell_size):
+		for j in range(cell_size):
+			temp_pred_C[i][j] = tf.sigmoid(pred_C[i][j]) 
+pred_C = tf.constant(temp_pred_C)
+```
+
+
+
+##### confidence_loss_function
+
+object_loss와 noobject_loss의 값의 범위가 sigmoid로 인해 0~1이기 때문에 loss function으로 MSE보다 **BCE**를 사용하는게 옳은 방법이다
+
+(sigmoid function는 베르누이 분포를 상정하기 때문이다.)
+
+
+
+**변경 전 confidence loss function**
+
+```python
+object_loss = tf.nn.l2_loss(object_exists_cell * best_box_mask * (pred_C - C)) * object_scale
+noobject_loss = tf.nn.l2_loss((1 - object_exists_cell) * (pred_C)) * noobject_scale
+confidence_loss = object_loss + noobject_loss
+```
+
+
+
+**변경 후 confidence loss function**
+
+```python
+object_loss = object_exists_cell * best_box_mask * confidence_loss_object(C, pred_C) * object_scale
+noobject_loss = (1 - object_exists_cell) * confidence_loss_object(0, pred_C) * noobject_scale
+confidence_loss = object_loss + noobject_loss
+```
+
+> confidence_loss_object는 train.py에서 선언된 BinaryCrossentropy의 object이다.
