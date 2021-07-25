@@ -134,7 +134,7 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 
 		if object_num == 1:
 			# label class와 예측한 class가 같다면
-			if int(label[0][4]) == class_name_to_label_dict[str(confidence_bounding_box_list[0]['class_name'])]:
+			if int(label[4]) == class_name_to_label_dict[str(confidence_bounding_box_list[0]['class_name'])]:
 				correct_answers_class_num +=1
 		else:  # image에 object가 2개 이상일 때
 			x_center_sort_labels = x_y_center_sort(labels, "x") # x좌표 기준으로 정렬한 labels
@@ -146,7 +146,7 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 			for x_each_object_num in range(object_num): 
 				x_center_sort_label = x_center_sort_labels[x_each_object_num, :]
 				x_center_sort_pred = x_center_sort_pred_list[x_each_object_num, :]
-				if int(x_center_sort_label[4]) == int(x_center_sort_pred[3]): # class가 동일하면 pass
+				if int(x_center_sort_label[4]) == int(x_center_sort_pred[2]): # class가 동일하면 pass
 					pass
 				else : 
 					break # 하나라도 다르면 break
@@ -156,7 +156,7 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 					for y_each_object_num in range(object_num):
 						y_center_sort_label = y_center_sort_labels[y_each_object_num, :]
 						y_center_sort_pred = y_center_sort_pred_list[y_each_object_num, :]
-						if int(y_center_sort_label[4]) == int(y_center_sort_pred[3]):
+						if int(y_center_sort_label[4]) == int(y_center_sort_pred[2]):
 							pass
 						else : 
 							break # 하나라도 다르면 break	

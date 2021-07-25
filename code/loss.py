@@ -48,7 +48,8 @@ def yolo_loss(predict,
 	sqrt_h = tf.sqrt(label[3])
 
 	# calulate iou between ground-truth and predictions
-	iou_predict_truth = iou(predict_boxes, label[0:4])
+	# 각 cell의 각 Bbox와 label과의 iou계산 tf.shape(iou_predict_truth):, [7 7 2]
+	iou_predict_truth = iou(predict_boxes, label[0:4]) 
 
 	# find best box mask
 	I = iou_predict_truth

@@ -2,4 +2,7 @@ __pycache__/
 saved_model/
 tensorboard_log/
 test_result/
+tensorboard_logaverage_detection_rate/
+tensorboard_logclassification_accuracy/
+tensorboard_logperfect_detection_accuracy
 *.txt

@@ -27,7 +27,7 @@ flags.DEFINE_string('checkpoint_path', default='saved_model', help='path to a di
 flags.DEFINE_integer('save_checkpoint_steps', default=50, help='period at which checkpoints are saved (defaults to every 50 steps)')
 flags.DEFINE_string('tensorboard_log_path', default='tensorboard_log', help='path to a directory to save tensorboard log')
 flags.DEFINE_integer('validation_steps', default=50, help='period at which test prediction result and save image')  # 몇 번의 step마다 validation data로 test를 할지 결정
-flags.DEFINE_integer('num_epochs', default=20, help='training epochs') # original paper : 135 epoch
+flags.DEFINE_integer('num_epochs', default=50, help='training epochs') # original paper : 135 epoch
 flags.DEFINE_float('init_learning_rate', default=0.0001, help='initial learning rate') # original paper : 0.001 (1epoch) -> 0.01 (75epoch) -> 0.001 (30epoch) -> 0.0001 (30epoch)
 flags.DEFINE_float('lr_decay_rate', default=0.75, help='decay rate for the learning rate')
 flags.DEFINE_integer('lr_decay_steps', default=200, help='number of steps after which the learning rate is decayed by decay rate') # 2000번 마다 init_learning_rate * lr_decay_rate 을 실행
@@ -55,7 +55,7 @@ P_one_hot = class_loss_one_hot(int(len(class_name_dict.keys())))
 dir_name = 'train3'
 
 # 이전에 했던 training을 다시 시작하거나 처음 진행할 때 False, 계속 이어서 할 땐 True 
-CONTINUE_LEARNING = False 
+CONTINUE_LEARNING = True
 
 
 # set configuration valuey
