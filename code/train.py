@@ -7,7 +7,7 @@ from absl import app
 
 from tensorflow.keras.optimizers import schedules
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.losses import CategoricalCrossentropy
+from tensorflow.keras.losses import CategoricalCrossentropy, BinaryCrossentropy
 
 from dataset import load_pascal_voc_dataset
 from loss import yolo_loss
@@ -53,10 +53,10 @@ class_name_to_label_dict = {v: k for k, v in class_name_dict.items()}
 from loss import class_loss_one_hot
 P_one_hot = class_loss_one_hot(int(len(class_name_dict.keys())))
 
-dir_name = 'train3'
+dir_name = 'train4'
 
 # 이전에 했던 training을 다시 시작하거나 처음 진행할 때 False, 계속 이어서 할 땐 True 
-CONTINUE_LEARNING = True
+CONTINUE_LEARNING = False
 
 
 # set configuration valuey
@@ -80,7 +80,7 @@ object_scale = 1	# original paper : None
 noobject_scale = 0.5	# original paper : None
 
 
-def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_object):
+def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_object, confidence_loss_object):
 	total_loss = 0.0
 	coord_loss = 0.0
 	object_loss = 0.0
@@ -118,7 +118,8 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 								   				 noobject_scale,
 								   				 class_scale,
 												 P_one_hot,
-												 class_loss_object)
+												 class_loss_object,
+												 confidence_loss_object)
 			
             # 각각 전체의 batch에 대해서 loss 합산
 			total_loss = total_loss+ each_object_total_loss
@@ -129,13 +130,13 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 	return total_loss, coord_loss, object_loss, noobject_loss, class_loss
 
 
-def train_step(optimizer, model, batch_image, batch_bbox, batch_labels, class_loss_object): 
+def train_step(optimizer, model, batch_image, batch_bbox, batch_labels, class_loss_object, confidence_loss_object): 
 	with tf.GradientTape() as tape:
 		(total_loss,
 		 coord_loss,
 		 object_loss,
 		 noobject_loss,
-		 class_loss) = calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_object)
+		 class_loss) = calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_object, confidence_loss_object)
 	
 	gradients = tape.gradient(total_loss, model.trainable_variables)
 	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -161,7 +162,8 @@ def save_validation_result(model,
 						   perfect_detection_accuracy_writer,
 						   classification_accuracy_writer,
 						   num_visualize_image,
-						   class_loss_object):
+						   class_loss_object,
+						   confidence_loss_object):
 	total_validation_total_loss = 0.0
 	total_validation_coord_loss = 0.0  
 	total_validation_object_loss = 0.0
@@ -185,7 +187,8 @@ def save_validation_result(model,
 												 batch_validation_image,
 												 batch_validation_bbox,
 												 batch_validation_labels,
-												 class_loss_object)
+												 class_loss_object,
+												 confidence_loss_object)
 		total_validation_total_loss = total_validation_total_loss + validation_total_loss
 		total_validation_coord_loss = total_validation_coord_loss + validation_coord_loss
 		total_validation_object_loss = total_validation_object_loss + validation_object_loss
@@ -373,6 +376,7 @@ def main(_):
 	# set optimizer
 	optimizer = Adam(lr_schedule) 
 	class_loss_object = CategoricalCrossentropy()
+	confidence_loss_object = BinaryCrossentropy()
 
     # set directory path
 	(checkpoint_path,
@@ -411,7 +415,9 @@ def main(_):
 			 object_loss, 
 			 noobject_loss, 
 			 class_loss) = train_step(optimizer, YOLOv1_model,
-					   batch_image, batch_bbox, batch_labels,class_loss_object)
+					   batch_image, batch_bbox, batch_labels,
+					   class_loss_object,
+					   confidence_loss_object)
 
 			# print log
 			print(f"Epoch: {epoch+1}, Iter: {(iter+1)}/{num_batch}, Loss: {total_loss.numpy()}")
@@ -434,7 +440,8 @@ def main(_):
 									   perfect_detection_accuracy_writer,
 									   classification_accuracy_writer,
 									   FLAGS.num_visualize_image,
-									   class_loss_object
+									   class_loss_object,
+									   confidence_loss_object
 									   )
 
 

@@ -23,7 +23,8 @@ def yolo_loss(predict,
 			  noobject_scale,
 			  class_scale,
 			  P_one_hot,
-			  class_loss_object):
+			  class_loss_object,
+			  confidence_loss_object):
 
 	# parse only coordinate vector
 	# predict의 shape [tf.shape(predict)[0], cell_size, cell_size, num_classes + 5 * boxes_per_cell]
@@ -58,9 +59,13 @@ def yolo_loss(predict,
 	best_box_mask = tf.cast((I >= max_I), tf.float32)
 
 	# set object_loss information(confidence, object가 있을 확률)
-	C = iou_predict_truth
-	pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell] 
-
+	C = 1 # object가 있는 cell에 대해서 confidence는 1
+	pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell]
+	temp_pred_C = np.zeros_like(pred_C)
+	for i in range(cell_size):
+			for j in range(cell_size):
+				temp_pred_C[i][j] = tf.sigmoid(pred_C[i][j]) 
+	pred_C = tf.constant(temp_pred_C)
 
 	# set class_loss information(probability, 특정 class일 확률)
 	P = 0.0
@@ -88,13 +93,13 @@ def yolo_loss(predict,
 				* coord_scale
 
 	# object_loss
-	object_loss = tf.nn.l2_loss(object_exists_cell * best_box_mask * (pred_C - C)) * object_scale
+	object_loss = object_exists_cell * best_box_mask * confidence_loss_object(C, pred_C) * object_scale
 
 	# noobject_loss
-	noobject_loss = tf.nn.l2_loss((1 - object_exists_cell) * (pred_C)) * noobject_scale
+	noobject_loss = (1 - object_exists_cell) * confidence_loss_object(0, pred_C) * noobject_scale
 
 	# class loss
-	class_loss = class_loss_object(P, pred_P)
+	class_loss = object_exists_cell * class_scale * class_loss_object(P, pred_P)
 
 	# sum every loss
 	total_loss = coord_loss + object_loss + noobject_loss + class_loss
