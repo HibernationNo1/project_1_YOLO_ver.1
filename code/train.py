@@ -56,7 +56,7 @@ P_one_hot = class_loss_one_hot(int(len(class_name_dict.keys())))
 dir_name = 'train4'
 
 # 이전에 했던 training을 다시 시작하거나 처음 진행할 때 False, 계속 이어서 할 땐 True 
-CONTINUE_LEARNING = False
+CONTINUE_LEARNING = True
 
 
 # set configuration valuey

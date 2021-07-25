@@ -64,15 +64,16 @@ loss_function에서 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되
 
   ```python
   # loss.py  def yolo_loss
+  P = np.zeros_like(predict[:, :, 0:num_classes])
   for i in range(num_classes):
   	if label[4] == list(class_name_dict.keys())[i]:
   		P = P_one_hot[i]
   ```
-
   
-
+  
+  
   **결과**
-
+  
   ```
   label[4] : 7.0,    P: [1. 0.]
   label[4] : 7.0,    P: [1. 0.]
@@ -87,11 +88,11 @@ loss_function에서 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되
   label[4] : 9.0,    P: [0. 1.]
   label[4] : 9.0,    P: [0. 1.]
   ```
-
+  
   두 개의 class가 있고, 첫 번째 class의 label은 7이고 두 번째 class의 label은 9일 때
-
+  
   `label[4]` == 7.0 일땐  `P`의 값이 [1. 0.] 이고,  `label[4]` == 9.0 일땐  `P`의 값이 [0. 1.] 임을 확인 
-
+  
   
 
 **변경 전 `P`**

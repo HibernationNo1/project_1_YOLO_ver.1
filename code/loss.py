@@ -68,10 +68,10 @@ def yolo_loss(predict,
 	pred_C = tf.constant(temp_pred_C)
 
 	# set class_loss information(probability, 특정 class일 확률)
-	P = 0.0
+	P = np.zeros_like(predict[:, :, 0:num_classes])
 	for i in range(num_classes):
 		if label[4] == list(class_name_dict.keys())[i]:
-			P = P_one_hot[i]
+			P[:, :] = P_one_hot[i]
 
 	pred_P = predict[:, :, 0:num_classes] 
 	temp_pred_P = np.zeros_like(pred_P)
@@ -103,5 +103,8 @@ def yolo_loss(predict,
 
 	# sum every loss
 	total_loss = coord_loss + object_loss + noobject_loss + class_loss
+	import sys
+	print(total_loss)
+	sys.exit()
         
 	return total_loss, coord_loss, object_loss, noobject_loss, class_loss
