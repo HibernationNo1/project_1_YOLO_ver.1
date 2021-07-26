@@ -50,8 +50,6 @@ from dataset import class_name_dict
 # class_name_dict = { 7: "cat", 9:"cow" }
 class_name_to_label_dict = {v: k for k, v in class_name_dict.items()}
 
-from loss import class_loss_one_hot
-P_one_hot = class_loss_one_hot(int(len(class_name_dict.keys())))
 
 dir_name = 'train4'
 
@@ -119,7 +117,6 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 								   				 object_scale,
 								   				 noobject_scale,
 								   				 class_scale,
-												 P_one_hot,
 												 class_loss_object,
 												 confidence_loss_object)
 			

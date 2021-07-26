@@ -4,10 +4,7 @@ from utils import iou
 
 from dataset import class_name_dict
 # class_name_dict = { 7: "cat", 9:"cow" 
-def class_loss_one_hot(num_classes):
-	index_list = [i for i in range(num_classes)]
-	P_one_hot = (tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32))
-	return P_one_hot
+
 
 
 def yolo_loss(predict,
@@ -22,7 +19,6 @@ def yolo_loss(predict,
 			  object_scale,
 			  noobject_scale,
 			  class_scale,
-			  P_one_hot,
 			  class_loss_object,
 			  confidence_loss_object):
 
@@ -40,12 +36,9 @@ def yolo_loss(predict,
 	pred_sqrt_h = tf.cast(pred_sqrt_h, tf.float32)
 
 	# parse labe
-	print(labels)
-
 	labels = np.array(labels) 
-	for i in range(4):
+	for i in range(4):	# tf.shape(labels) == [1, 1, 1, 1, [2]] 이기 때문에 for문 사용
 		labels[:, i] = labels[:, i].astype('float32')
-
 	label = labels[each_object_num, :]
 
 	xcenter = label[0]
@@ -63,7 +56,7 @@ def yolo_loss(predict,
 	best_box_mask = tf.cast((I >= max_I), tf.float32) # IOU가 가장 큰 call == object가 위치한 cell
 
 	# set object_loss information(confidence, object가 있을 확률)
-	C = 1 # object가 있는 cell에 대해서 confidence는 1
+	C = iou_predict_truth # object가 있는 cell에만 적용될 값이고, 해당 cell에서 IOU는 1이다.
 	pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell]
 	temp_pred_C = np.zeros_like(pred_C)
 	for i in range(cell_size):

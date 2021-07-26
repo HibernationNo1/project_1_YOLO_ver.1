@@ -40,26 +40,6 @@ loss_function에서 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되
 
 각 label값에 알맞게 one-hot encoding 된 값이 할당될 수 있도록 dataset.py의 `process_each_ground_truth`에 one-hot encoding 처리 코드를 추가했다.
 
-- `tf.one_hot`의 첫 번째 argument에 `num_classes` 만큼의 count number를 가진 list를 사용
-
-  ```python
-  # loss.py
-  def class_loss_one_hot(num_classes):
-  	index_list = [i for i in range(num_classes)]
-  	P_one_hot = (tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32))
-  	return P_one_hot
-  ```
-
-  해당 function은 loss.py에서 정의했지만, 사용시 학습 속도가 저하되지 않기 위해 가장 상위 계층인 main.py의 global에 instance를 선언했다.
-
-  ```python
-  # main.py
-  from loss import class_loss_one_hot
-  P_one_hot = class_loss_one_hot(class_name_dict.keys())
-  ```
-
-  
-
 - `label[4]`값에 알맞게 one_hot encoding이 적용된 정답값을 P에 할당
 
   ```python
@@ -71,6 +51,8 @@ loss_function에서 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되
   if class_num == list(class_name_dict.keys())[i]:
   	class_num = oh_class_num[i]
   ```
+  
+  `tf.one_hot`의 첫 번째 argument에 `num_classes` 만큼의 count number를 가진 list를 사용
   
   
   
@@ -95,24 +77,42 @@ loss_function에서 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되
   
   `label[4]` == 7.0 일땐  `P`의 값이 [1. 0.] 이고,  `label[4]` == 9.0 일땐  `P`의 값이 [0. 1.] 임을 확인 
   
-  
 
-**변경 전 `P`**
+
+
+`yolo_loss function` 에서도 `label`과 `P`값의 code수정
+
+**변경 전 **
 
 ```python
-P = tf.one_hot(tf.cast(label[4], tf.int32), num_classes, dtype=tf.float32)
-
+labels = np.array(labels) 
+labels = labels.astype('float32')
 ```
 
 
 
-**변경 후 `P`**
+```python
+P = tf.one_hot(tf.cast(label[4], tf.int32), num_classes, dtype=tf.float32)
+```
+
+
+
+**변경 후 **
+
+```python
+	labels = np.array(labels) 
+	for i in range(4):	
+		labels[:, i] = labels[:, i].astype('float32')
+	label = labels[each_object_num, :]
+
+```
+
+> tf.shape(labels) == [1, 1, 1, 1, [2]] 이기 때문에 for문 사용
+
+
 
 ````python
-p = 0.0
-for i in range(num_classes):
-	if label[4] == list(class_name_dict.keys())[i]:
-		P = P_one_hot[i]
+P = label[4]
 ````
 
 
