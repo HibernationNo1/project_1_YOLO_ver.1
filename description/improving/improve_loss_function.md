@@ -167,7 +167,7 @@ class_loss = tf.nn.l2_loss(object_exists_cell * (pred_P - P)) * class_scale
 변경 후 `class_loss`
 
 ```python
-class_loss = object_exists_cell * class_scale * class_loss_object(P, pred_P)
+class_loss = tf.reduce_sum(object_exists_cell * class_scale * class_loss_object(P, pred_P))
 ```
 
 > class_loss_object는 train.py에서 선언된 CategoricalCrossentropy의 object이다.
@@ -258,9 +258,9 @@ confidence_loss = object_loss + noobject_loss
 **변경 후 confidence loss function**
 
 ```python
-object_loss = object_exists_cell * best_box_mask * confidence_loss_object(C, pred_C) * object_scale
-noobject_loss = (1 - object_exists_cell) * confidence_loss_object(0, pred_C) * noobject_scale
-confidence_loss = object_loss + noobject_loss
+object_loss = tf.reduce_sum(object_exists_cell * best_box_mask * confidence_loss_object(C, pred_C) * object_scale)
+
+noobject_loss = tf.reduce_sum((1 - object_exists_cell) * confidence_loss_object(0, pred_C) * noobject_scale)
 ```
 
 > confidence_loss_object는 train.py에서 선언된 BinaryCrossentropy의 object이다.

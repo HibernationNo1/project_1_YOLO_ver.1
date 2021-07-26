@@ -3,7 +3,7 @@ import numpy as np
 from utils import iou
 
 from dataset import class_name_dict
-# class_name_dict = { 7: "cat", 9:"cow" }
+# class_name_dict = { 7: "cat", 9:"cow" 
 def class_loss_one_hot(num_classes):
 	index_list = [i for i in range(num_classes)]
 	P_one_hot = (tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32))
@@ -40,8 +40,12 @@ def yolo_loss(predict,
 	pred_sqrt_h = tf.cast(pred_sqrt_h, tf.float32)
 
 	# parse labe
+	print(labels)
+
 	labels = np.array(labels) 
-	labels = labels.astype('float32')
+	for i in range(4):
+		labels[:, i] = labels[:, i].astype('float32')
+
 	label = labels[each_object_num, :]
 
 	xcenter = label[0]
@@ -56,7 +60,7 @@ def yolo_loss(predict,
 	# find best box mask
 	I = iou_predict_truth
 	max_I = tf.reduce_max(I, 2, keepdims=True)
-	best_box_mask = tf.cast((I >= max_I), tf.float32)
+	best_box_mask = tf.cast((I >= max_I), tf.float32) # IOU가 가장 큰 call == object가 위치한 cell
 
 	# set object_loss information(confidence, object가 있을 확률)
 	C = 1 # object가 있는 cell에 대해서 confidence는 1
@@ -66,16 +70,13 @@ def yolo_loss(predict,
 			for j in range(cell_size):
 				temp_pred_C[i][j] = tf.sigmoid(pred_C[i][j]) 
 	pred_C = tf.constant(temp_pred_C)
-
+	
 	# set class_loss information(probability, 특정 class일 확률)
-	P = np.zeros_like(predict[:, :, 0:num_classes])
-	for i in range(num_classes):
-		if label[4] == list(class_name_dict.keys())[i]:
-			P[:, :] = P_one_hot[i]
+	P = label[4]
 
 	pred_P = predict[:, :, 0:num_classes] 
 	temp_pred_P = np.zeros_like(pred_P)
-	for i in range(cell_size):
+	for i in range(cell_size):  # 각 cell의 예측값에 대해 activation function을 적용한다.
 			for j in range(cell_size):
 				temp_pred_P[i][j] = tf.nn.softmax(pred_P[i][j]) 
 	pred_P = tf.constant(temp_pred_P)
@@ -93,18 +94,15 @@ def yolo_loss(predict,
 				* coord_scale
 
 	# object_loss
-	object_loss = object_exists_cell * best_box_mask * confidence_loss_object(C, pred_C) * object_scale
+	object_loss = tf.reduce_sum(object_exists_cell * best_box_mask * confidence_loss_object(C, pred_C) * object_scale)
 
 	# noobject_loss
-	noobject_loss = (1 - object_exists_cell) * confidence_loss_object(0, pred_C) * noobject_scale
+	noobject_loss = tf.reduce_sum((1 - object_exists_cell) * confidence_loss_object(0, pred_C) * noobject_scale)
 
 	# class loss
-	class_loss = object_exists_cell * class_scale * class_loss_object(P, pred_P)
+	class_loss = tf.reduce_sum(object_exists_cell * class_scale * class_loss_object(P, pred_P))
 
 	# sum every loss
 	total_loss = coord_loss + object_loss + noobject_loss + class_loss
-	import sys
-	print(total_loss)
-	sys.exit()
         
-	return total_loss, coord_loss, object_loss, noobject_loss, class_loss
+	return total_loss, coord_loss, object_loss, noobject_loss, class_loss, pred_C, pred_P

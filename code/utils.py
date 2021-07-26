@@ -116,14 +116,14 @@ def draw_bounding_box_and_label_info(frame, x_min, y_min, x_max, y_max, label, c
 				lineType)
     
 
-def find_enough_confidence_bounding_box(bounding_box_info_list, tensorboard_log_path, step, validation_image_index):
+def find_enough_confidence_bounding_box(bounding_box_info_list, validation_image_index):
 	bounding_box_info_list_sorted = sorted(bounding_box_info_list,
 											key=itemgetter('confidence_score'),
 											reverse=True)
 	confidence_bounding_box_list = list()
 
 	# 가장 큰 confidence_score를 저장
-	print(f'image index:{validation_image_index},  confidence_score: {bounding_box_info_list_sorted[0]["confidence_score"]}')
+	print(f'image index:{validation_image_index},  best_confidence_score: {bounding_box_info_list_sorted[0]["confidence_score"]}')
 	
 	# confidence값이 0.5 이상인 Bbox는 모두 표현
 	for index, features in enumerate(bounding_box_info_list_sorted):

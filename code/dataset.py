@@ -119,6 +119,13 @@ def process_each_ground_truth(original_image,
 		ymax = bbox[i][2] * original_h
 
 		class_num = class_labels[i] # 실제 class labels
+		# ont_hot preprocess
+		num_of_class = len(class_name_dict.keys()) 
+		index_list = [i for i in range(num_of_class)]
+		oh_class_num = (tf.one_hot(tf.cast((index_list), tf.int32), num_of_class, dtype=tf.float32))
+		if class_num == list(class_name_dict.keys())[i]:
+			class_num = oh_class_num[i]
+
 
 		# resizing 된 image에 맞는 center coordinate 
 		xcenter = (xmin + xmax) * 1.0 / 2 * width_rate 

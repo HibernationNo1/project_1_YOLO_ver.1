@@ -86,6 +86,7 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 	object_loss = 0.0
 	noobject_loss = 0.0
 	class_loss = 0.0
+	pred_C, pred_P = 0.0, 0.0
 	for batch_index in range(batch_image.shape[0]): # 전체 batch에 대해서 1개씩 반복
 		image, labels, object_num = process_each_ground_truth(batch_image[batch_index],
 														   	  batch_bbox[batch_index],
@@ -105,7 +106,8 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 			 each_object_coord_loss, 
 			 each_object_object_loss, 
 			 each_object_noobject_loss, 
-			 each_object_class_loss) = yolo_loss(predict[0],
+			 each_object_class_loss,
+			 pred_C, pred_P) = yolo_loss(predict[0],
 								   				 labels,
 								   				 object_num_index,
 								   				 num_classes,
@@ -127,7 +129,7 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 			object_loss = object_loss + each_object_object_loss
 			noobject_loss = noobject_loss + each_object_noobject_loss
 			class_loss = class_loss + each_object_class_loss
-	return total_loss, coord_loss, object_loss, noobject_loss, class_loss
+	return total_loss, coord_loss, object_loss, noobject_loss, class_loss, pred_C, pred_P
 
 
 def train_step(optimizer, model, batch_image, batch_bbox, batch_labels, class_loss_object, confidence_loss_object): 
@@ -136,7 +138,8 @@ def train_step(optimizer, model, batch_image, batch_bbox, batch_labels, class_lo
 		 coord_loss,
 		 object_loss,
 		 noobject_loss,
-		 class_loss) = calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_object, confidence_loss_object)
+		 class_loss,
+		 pred_C, pred_P) = calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_object, confidence_loss_object)
 	
 	gradients = tape.gradient(total_loss, model.trainable_variables)
 	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -169,6 +172,7 @@ def save_validation_result(model,
 	total_validation_object_loss = 0.0
 	total_validation_noobject_loss = 0.0  
 	total_validation_class_loss = 0.0
+	pred_C, pred_P = 0.0, 0.0
 	for iter, features in enumerate(validation_data):
 		batch_validation_image = features['image']
 		batch_validation_bbox = features['objects']['bbox']
@@ -183,7 +187,8 @@ def save_validation_result(model,
 		 validation_coord_loss,
 		 validation_object_loss,
 		 validation_noobject_loss,
-		 validation_class_loss) = calculate_loss(model,
+		 validation_class_loss,
+		 pred_C, pred_P) = calculate_loss(model,
 												 batch_validation_image,
 												 batch_validation_bbox,
 												 batch_validation_labels,
@@ -235,20 +240,18 @@ def save_validation_result(model,
 		predict_boxes = tf.reshape(predict_boxes, [cell_size, cell_size, boxes_per_cell, 4])
 		
 
-		# 예측한 Bbox영역 안에 object가 있을 확률(label = IOU)
-		confidence_boxes = predict[0, :, :, num_classes:num_classes + boxes_per_cell]
-		confidence_boxes = tf.reshape(confidence_boxes, [cell_size, cell_size, boxes_per_cell, 1])
-
+		# pred_C : 예측한 Bbox영역 안에 object가 있을 probability
+		# pred_P : 각 class에 대한 predicted probability
 		# 각 셀마다 class probability가 가장 높은 prediction value의 index추출(predict한 class name)
-		# 0:num_class는 에는 각 class에 대한 predicted probability value가 있다.(class 확률의 합 = 1)
-		class_prediction = predict[0, :, :, 0:num_classes]  
-		class_prediction_value = tf.reduce_max(class_prediction, axis = 2) # for compute confidence_score
+		class_prediction = pred_P  
 		class_prediction = tf.argmax(class_prediction, axis=2)
 
-		confidence_score = np.zeros_like(confidence_boxes[:, :, :, 0])
-		for i in range(boxes_per_cell):
-			confidence_score[:, :, i] = (confidence_boxes[:, :, i, 0] * class_prediction_value)
-		
+		# 각 cell에 위치한 각 Bbox의 confidence score 계산
+		# confidence_score = predicted object confidence * predited class probability
+		confidence_score = np.zeros_like(pred_C)
+		for i in range(boxes_per_cell):  
+			confidence_score[:, :, i] = (pred_C[:, :, i] * pred_P[:, :, i])
+
 		# make prediction bounding box list
 		bounding_box_info_list = []
 		for i in range(cell_size):
@@ -260,7 +263,7 @@ def save_validation_result(model,
 					pred_box_h = tf.minimum(input_height * 1.0, tf.maximum(0.0, predict_boxes[i][j][k][3]))
 				   
 					
-					pred_class_name = label_to_class_dict[class_prediction[i][j].numpy()]                   
+					pred_class_name = label_to_class_dict[class_prediction[i][j].numpy()]           
 					pred_confidence_score = confidence_score[i][j][k]
                     
 					# for문이 끝나면 bounding_box_info_list에는 7(cell_size) * 7(cell_size) * 2) = 98 개의 bounding box의 information이 들어있다.
