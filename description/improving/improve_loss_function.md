@@ -38,7 +38,7 @@ loss_function에서 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되
 
 제대로 된 one_hot encoding을 위해
 
-각 label값에 알맞게 one-hot encoding 된 값이 할당될 수 있도록 function을 추가했다.
+각 label값에 알맞게 one-hot encoding 된 값이 할당될 수 있도록 dataset.py의 `process_each_ground_truth`에 one-hot encoding 처리 코드를 추가했다.
 
 - `tf.one_hot`의 첫 번째 argument에 `num_classes` 만큼의 count number를 가진 list를 사용
 
@@ -63,11 +63,13 @@ loss_function에서 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되
 - `label[4]`값에 알맞게 one_hot encoding이 적용된 정답값을 P에 할당
 
   ```python
-  # loss.py  def yolo_loss
-  P = np.zeros_like(predict[:, :, 0:num_classes])
-  for i in range(num_classes):
-  	if label[4] == list(class_name_dict.keys())[i]:
-  		P = P_one_hot[i]
+  class_num = class_labels[i] # 실제 class labels
+  
+  num_of_class = len(class_name_dict.keys()) 
+  index_list = [i for i in range()]
+  oh_class_num = (tf.one_hot(tf.cast((index_list), tf.int32), num_of_class, dtype=tf.float32))
+  if class_num == list(class_name_dict.keys())[i]:
+  	class_num = oh_class_num[i]
   ```
   
   
