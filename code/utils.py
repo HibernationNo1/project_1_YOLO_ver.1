@@ -42,10 +42,11 @@ def dir_setting(dir_name,
 	# set tensorboard log
 	train_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/train')
 	validation_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/validation')
-	average_detection_rate_writer = tf.summary.create_file_writer(tensorboard_log_path +  'average_detection_rate')
-	perfect_detection_accuracy_writer = tf.summary.create_file_writer(tensorboard_log_path +  'perfect_detection_accuracy')
-	classification_accuracy_writer = tf.summary.create_file_writer(tensorboard_log_path +  'classification_accuracy')  
-
+	average_detection_rate_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/average_detection_rate')
+	perfect_detection_accuracy_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/perfect_detection_accuracy')
+	classification_accuracy_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/classification_accuracy')  
+	
+	
 	# pass if the path exist. or not, create directory on path
 	if not os.path.isdir(model_path):
 		os.makedirs(model_path, exist_ok=True)
