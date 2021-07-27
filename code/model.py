@@ -17,8 +17,28 @@ class YOLOv1(Model):
     
 		# Global Average Pooling
 		x = GlobalAveragePooling2D()(x)  # shape = (None, 2048)
-		output = Dense(cell_size * cell_size * (num_classes + (boxes_per_cell*5)), activation=None)(x)
-		model = Model(inputs=base_model.input, outputs=output)
+		x = Dense(cell_size * cell_size * (num_classes + (boxes_per_cell*5)), activation=None)(x)
+		# flatten vector -> cell_size x cell_size x (num_classes + 5 * boxes_per_cell)
+		
+		pred_class = x[:,  : cell_size * cell_size * num_classes]
+		pred_confidence = x[:,  cell_size * cell_size * num_classes: (cell_size * cell_size * num_classes) + (cell_size * cell_size * boxes_per_cell)]
+		pred_coordinate = x[:, (cell_size * cell_size * num_classes) + (cell_size * cell_size * boxes_per_cell): ]
+		
+		pred_class = tf.reshape(pred_class, 
+				 [tf.shape(pred_class)[0], cell_size, cell_size, num_classes])
+		pred_class = tf.nn.softmax(pred_class) 
+		# tf.reduce_sum(pred_class) == cell_size * cell_size
+
+		pred_confidence = tf.reshape(pred_confidence, 
+				 [tf.shape(pred_confidence)[0], cell_size, cell_size, boxes_per_cell])
+		pred_confidence = tf.sigmoid(pred_confidence)		
+
+		pred_coordinate = tf.reshape(pred_coordinate,
+				 [tf.shape(pred_coordinate)[0], cell_size, cell_size, boxes_per_cell, 4])
+
+		output_list = [pred_class, pred_confidence, pred_coordinate]
+	
+		model = Model(inputs=base_model.input, outputs=output_list)
 		self.model = model
 		# print model structure
 		self.model.summary()
