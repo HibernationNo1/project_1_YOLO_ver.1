@@ -99,7 +99,12 @@ perfect rate를 계산하고 perfect detection여부를 확인한다.
 perfect detection인 경우에는 success classification여부를 확인한다.
 
 ```python
-def performance_evaluation(confidence_bounding_box_list, object_num, labels, class_name_to_label_dict):
+def performance_evaluation(confidence_bounding_box_list,
+						   object_num,
+						   labels,
+						   class_name_to_label_dict,
+						   validation_image_index,
+						   num_classes):
 
 	x_center_sort_labels = None
 	y_center_sort_labels = None
@@ -111,17 +116,15 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 	correct_answers_class_num = 0.0  # classification accuracy 계산을 위한 값
 	success_detection_num = 0.0 # perfect detection accuracy 계산을 위한 값
 
-
 	# label object 중 detection한 object의 비율
-	detection_rate = len(confidence_bounding_box_list)/object_num
-
+	detection_rate = len(confidence_bounding_box_list)/object_num  
+	print(f"image_index: {validation_image_index},", end=' ')
 	if detection_rate == 1: # label과 같은 수의 object를 detection했을 때
 		success_detection_num +=1
-		print(f"detection_rate = {detection_rate}")
+		print(f" detection_rate = {detection_rate}")
 
 		# detection_rate == 100% 일 때 correct_answers_class_num 계산 
 		for each_object_num in range(object_num): 
-			label = labels[each_object_num, :] 
 			
 			confidence_bounding_box = confidence_bounding_box_list[each_object_num]
 			# compute x, y center coordinate 
@@ -134,7 +137,8 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 
 		if object_num == 1:
 			# label class와 예측한 class가 같다면
-			if int(label[4]) == class_name_to_label_dict[str(confidence_bounding_box_list[0]['class_name'])]:
+			index_one = tf.argmax(labels[0][4], axis = 0)
+			if int(index_one) == num_classes:
 				correct_answers_class_num +=1
 		else:  # image에 object가 2개 이상일 때
 			x_center_sort_labels = x_y_center_sort(labels, "x") # x좌표 기준으로 정렬한 labels
@@ -146,6 +150,7 @@ def performance_evaluation(confidence_bounding_box_list, object_num, labels, cla
 			for x_each_object_num in range(object_num): 
 				x_center_sort_label = x_center_sort_labels[x_each_object_num, :]
 				x_center_sort_pred = x_center_sort_pred_list[x_each_object_num, :]
+				
 				if int(x_center_sort_label[4]) == int(x_center_sort_pred[2]): # class가 동일하면 pass
 					pass
 				else : 

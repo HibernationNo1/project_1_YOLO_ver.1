@@ -31,7 +31,7 @@ flags.DEFINE_integer('validation_steps', default=50, help='period at which test 
 flags.DEFINE_integer('num_epochs', default=50, help='training epochs') # original paper : 135 epoch
 flags.DEFINE_float('init_learning_rate', default=0.0001, help='initial learning rate') # original paper : 0.001 (1epoch) -> 0.01 (75epoch) -> 0.001 (30epoch) -> 0.0001 (30epoch)
 flags.DEFINE_float('lr_decay_rate', default=0.75, help='decay rate for the learning rate')
-flags.DEFINE_integer('lr_decay_steps', default=200, help='number of steps after which the learning rate is decayed by decay rate') # 2000번 마다 init_learning_rate * lr_decay_rate 을 실행
+flags.DEFINE_integer('lr_decay_steps', default=100, help='number of steps after which the learning rate is decayed by decay rate') # 2000번 마다 init_learning_rate * lr_decay_rate 을 실행
 # 2000 step : init_learning_rate = 0.00005, 4000 step : init_learning_rate = 0.000025
 flags.DEFINE_integer('num_visualize_image', default=8, help='number of visualize image for validation')
 # 중간중간 validation을 할 때마다 몇 개의 batch size로 visualization을 할지 결정하는 변수
@@ -84,7 +84,7 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 	object_loss = 0.0
 	noobject_loss = 0.0
 	class_loss = 0.0
-	pred_C, pred_P = 0.0, 0.0
+	
 	for batch_index in range(batch_image.shape[0]): # 전체 batch에 대해서 1개씩 반복
 		image, labels, object_num = process_each_ground_truth(batch_image[batch_index],
 														   	  batch_bbox[batch_index],
@@ -99,6 +99,18 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 		# predict[1] == pred_confidence
 		# predict[2] == pred_coordinate
 
+		# 지울것
+		pred_C = predict[1]
+		pred_C = tf.squeeze(pred_C)
+		pred_P = predict[0]
+		pred_P = tf.squeeze(pred_P)
+		max_pred_P = tf.reduce_max(pred_P)
+		max_pred_C = tf.reduce_max(pred_C)
+
+		if batch_index == (int(batch_image.shape[0]) -1):
+			print(f"max_pred_P: {max_pred_P}")
+			print(f"max_pred_C: {max_pred_C}")
+		# 여기까지
 
 		for object_num_index in range(object_num): # 실제 object개수만큼 for루프
             # 각 return값은 1개의 image에 대한 여러 loss 값임
@@ -106,8 +118,7 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 			 each_object_coord_loss, 
 			 each_object_object_loss, 
 			 each_object_noobject_loss, 
-			 each_object_class_loss,
-			 pred_C, pred_P) = yolo_loss(predict,
+			 each_object_class_loss) = yolo_loss(predict,
 								   				 labels,
 								   				 object_num_index,
 								   				 cell_size,
@@ -126,7 +137,7 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 			object_loss = object_loss + each_object_object_loss
 			noobject_loss = noobject_loss + each_object_noobject_loss
 			class_loss = class_loss + each_object_class_loss
-	return total_loss, coord_loss, object_loss, noobject_loss, class_loss, pred_C, pred_P
+	return total_loss, coord_loss, object_loss, noobject_loss, class_loss
 
 
 def train_step(optimizer, model, batch_image, batch_bbox, batch_labels, class_loss_object, confidence_loss_object): 
@@ -135,8 +146,7 @@ def train_step(optimizer, model, batch_image, batch_bbox, batch_labels, class_lo
 		 coord_loss,
 		 object_loss,
 		 noobject_loss,
-		 class_loss,
-		 pred_C, pred_P) = calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_object, confidence_loss_object)
+		 class_loss) = calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_object, confidence_loss_object)
 	
 	gradients = tape.gradient(total_loss, model.trainable_variables)
 	optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -158,9 +168,6 @@ def save_tensorboard_log(train_summary_writer, optimizer, ckpt,
 def save_validation_result(model,
 						   ckpt, 
 						   validation_summary_writer,
-						   average_detection_rate_writer,
-						   perfect_detection_accuracy_writer,
-						   classification_accuracy_writer,
 						   num_visualize_image,
 						   class_loss_object,
 						   confidence_loss_object):
@@ -169,7 +176,7 @@ def save_validation_result(model,
 	total_validation_object_loss = 0.0
 	total_validation_noobject_loss = 0.0  
 	total_validation_class_loss = 0.0
-	pred_C, pred_P = 0.0, 0.0
+
 	for iter, features in enumerate(validation_data):
 		batch_validation_image = features['image']
 		batch_validation_bbox = features['objects']['bbox']
@@ -186,8 +193,7 @@ def save_validation_result(model,
 		 validation_coord_loss,
 		 validation_object_loss,
 		 validation_noobject_loss,
-		 validation_class_loss,
-		 pred_C, pred_P) = calculate_loss(model,
+		 validation_class_loss) = calculate_loss(model,
 												 batch_validation_image,
 												 batch_validation_bbox,
 												 batch_validation_labels,
@@ -233,7 +239,6 @@ def save_validation_result(model,
 		# predict[0] == pred_class
 		# predict[1] == pred_confidence
 		# predict[2] == pred_coordinate
-
 		# tf.shape(predict)[0] == batch_size
 		
 		
@@ -241,7 +246,10 @@ def save_validation_result(model,
 		predict_boxes = predict[2]
 		predict_boxes = tf.reshape(predict_boxes, [cell_size, cell_size, boxes_per_cell, 4])
 		
-
+		pred_C = predict[1]
+		pred_C = tf.squeeze(pred_C)
+		pred_P = predict[0]
+		pred_P = tf.squeeze(pred_P)
 		# pred_C : 예측한 Bbox영역 안에 object가 있을 probability
 		# pred_P : 각 class에 대한 predicted probability
 		# 각 셀마다 class probability가 가장 높은 prediction value의 index추출(predict한 class name)
@@ -249,10 +257,12 @@ def save_validation_result(model,
 		class_prediction = tf.argmax(class_prediction, axis=2)
 
 		# 각 cell에 위치한 각 Bbox의 confidence score 계산
-		# confidence_score = predicted object confidence * predited class probability
+		# confidence_score = predicted object confidence * best predited class probability
+		max__probability = tf.expand_dims(tf.reduce_max(pred_P, axis = 2), axis=2)
 		confidence_score = np.zeros_like(pred_C)
-		for i in range(boxes_per_cell):  
-			confidence_score[:, :, i] = (pred_C[:, :, i] * pred_P[:, :, i])
+ 
+		confidence_score = pred_C * max__probability
+		
 
 		# make prediction bounding box list
 		bounding_box_info_list = []
@@ -347,7 +357,8 @@ def save_validation_result(model,
 																		  object_num,
 																		  labels,
 																		  class_name_to_label_dict,
-																		  validation_image_index)
+																		  validation_image_index,
+																		  num_classes)
 		success_detection_num += detection_num
 		correct_answers_class_num += class_num
 		detection_rate_sum +=detection_rate
@@ -355,18 +366,9 @@ def save_validation_result(model,
 	average_detection_rate = detection_rate / num_visualize_image  				# 평균 object detection 비율	
 	perfect_detection_accuracy = success_detection_num / num_visualize_image	# 완벽한 object detection이 이루어진 비율
 	classification_accuracy = correct_answers_class_num / num_visualize_image 	# 정확한 classicifiation이 이루어진 비율
-	
-	with average_detection_rate_writer.as_default():
-		print(f"average_detection_rate: {average_detection_rate}")
-		tf.summary.scalar('average_detection_rate', average_detection_rate, step=int(ckpt.step))
-
-	with perfect_detection_accuracy_writer.as_default():
-		print(f"perfect_detection_accuracy: {perfect_detection_accuracy}")
-		tf.summary.scalar('perfect_detection_accuracy', perfect_detection_accuracy, step=int(ckpt.step))
-
-	with classification_accuracy_writer.as_default():
-		print(f"classification_accuracy: {classification_accuracy}")
-		tf.summary.scalar('classification_accuracy', classification_accuracy, step=int(ckpt.step))
+	print(f"average_detection_rate: {average_detection_rate}")
+	print(f"perfect_detection_accuracy: {perfect_detection_accuracy}")
+	print(f"classification_accuracy: {classification_accuracy}")
 
     
     
@@ -386,10 +388,7 @@ def main(_):
     # set directory path
 	(checkpoint_path,
 	 train_summary_writer,
-	 validation_summary_writer,
-	 average_detection_rate_writer,
-	 perfect_detection_accuracy_writer,
-	 classification_accuracy_writer) = dir_setting(dir_name, 
+	 validation_summary_writer) = dir_setting(dir_name, 
 											 CONTINUE_LEARNING,
 											 FLAGS.checkpoint_path, 
 											 FLAGS.tensorboard_log_path)
@@ -441,9 +440,6 @@ def main(_):
 				save_validation_result(YOLOv1_model,
 									   ckpt, 
 									   validation_summary_writer,
-									   average_detection_rate_writer,
-									   perfect_detection_accuracy_writer,
-									   classification_accuracy_writer,
 									   FLAGS.num_visualize_image,
 									   class_loss_object,
 									   confidence_loss_object

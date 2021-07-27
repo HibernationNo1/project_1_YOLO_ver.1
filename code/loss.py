@@ -91,4 +91,4 @@ def yolo_loss(predict,
 	# sum every loss
 	total_loss = coord_loss + object_loss + noobject_loss + class_loss
         
-	return total_loss, coord_loss, object_loss, noobject_loss, class_loss, pred_C, pred_P
+	return total_loss, coord_loss, object_loss, noobject_loss, class_loss

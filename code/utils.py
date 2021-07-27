@@ -42,23 +42,15 @@ def dir_setting(dir_name,
 	# set tensorboard log
 	train_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/train')
 	validation_summary_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/validation')
-	average_detection_rate_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/average_detection_rate')
-	perfect_detection_accuracy_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/perfect_detection_accuracy')
-	classification_accuracy_writer = tf.summary.create_file_writer(tensorboard_log_path +  '/classification_accuracy')  
-	
 	
 	# pass if the path exist. or not, create directory on path
 	if not os.path.isdir(model_path):
 		os.makedirs(model_path, exist_ok=True)
 		os.mkdir(checkpoint_path)
 
-
 	return (checkpoint_path,
 			train_summary_writer,
-			validation_summary_writer,
-			average_detection_rate_writer, 
-			perfect_detection_accuracy_writer,
-			classification_accuracy_writer)
+			validation_summary_writer)
 
 
 def set_checkpoint_manager(input_height,
@@ -122,7 +114,7 @@ def find_enough_confidence_bounding_box(bounding_box_info_list, validation_image
 											reverse=True)
 	confidence_bounding_box_list = list()
 
-	# 가장 큰 confidence_score를 저장
+	# 가장 큰 confidence_score를 출력
 	print(f'image index:{validation_image_index},  best_confidence_score: {bounding_box_info_list_sorted[0]["confidence_score"]}')
 	
 	# confidence값이 0.5 이상인 Bbox는 모두 표현
@@ -239,7 +231,8 @@ def performance_evaluation(confidence_bounding_box_list,
 						   object_num,
 						   labels,
 						   class_name_to_label_dict,
-						   validation_image_index):
+						   validation_image_index,
+						   num_classes):
 
 	x_center_sort_labels = None
 	y_center_sort_labels = None
@@ -272,7 +265,8 @@ def performance_evaluation(confidence_bounding_box_list,
 
 		if object_num == 1:
 			# label class와 예측한 class가 같다면
-			if int(labels[0][4]) == class_name_to_label_dict[str(confidence_bounding_box_list[0]['class_name'])]:
+			index_one = tf.argmax(labels[0][4], axis = 0)
+			if int(index_one) == num_classes:
 				correct_answers_class_num +=1
 		else:  # image에 object가 2개 이상일 때
 			x_center_sort_labels = x_y_center_sort(labels, "x") # x좌표 기준으로 정렬한 labels

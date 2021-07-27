@@ -31,7 +31,7 @@ class YOLOv1(Model):
 
 		pred_confidence = tf.reshape(pred_confidence, 
 				 [tf.shape(pred_confidence)[0], cell_size, cell_size, boxes_per_cell])
-		pred_confidence = tf.sigmoid(pred_confidence)		
+		pred_confidence = tf.nn.sigmoid(pred_confidence)		
 
 		pred_coordinate = tf.reshape(pred_coordinate,
 				 [tf.shape(pred_coordinate)[0], cell_size, cell_size, boxes_per_cell, 4])
