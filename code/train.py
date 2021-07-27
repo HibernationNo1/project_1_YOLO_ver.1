@@ -90,13 +90,15 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 														   	  batch_bbox[batch_index],
 														  	  batch_labels[batch_index],
 														  	  input_width, input_height)
-	
-		image = tf.expand_dims(image, axis=0)
+		
+		# model의 inceptionV3의 input의 shape에 맞추기 위해 dumy dims 생성
+		image = tf.expand_dims(image, axis=0) 
 
-		predict = model(image) # 여기서 predict의 shape은 flatten vector 형태
-		# flatten vector -> cell_size x cell_size x (num_classes + 5 * boxes_per_cell)
-		predict = tf.reshape(predict, 
-					[tf.shape(predict)[0], cell_size, cell_size, num_classes + 5 * boxes_per_cell])
+		predict = model(image)
+		# predict[0] == pred_class
+		# predict[1] == pred_confidence
+		# predict[2] == pred_coordinate
+
 
 		for object_num_index in range(object_num): # 실제 object개수만큼 for루프
             # 각 return값은 1개의 image에 대한 여러 loss 값임
@@ -105,11 +107,9 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 			 each_object_object_loss, 
 			 each_object_noobject_loss, 
 			 each_object_class_loss,
-			 pred_C, pred_P) = yolo_loss(predict[0],
+			 pred_C, pred_P) = yolo_loss(predict,
 								   				 labels,
 								   				 object_num_index,
-								   				 num_classes,
-								   				 boxes_per_cell,
 								   				 cell_size,
 								   				 input_width,
 												 input_height,
@@ -178,6 +178,8 @@ def save_validation_result(model,
 		batch_validation_image = tf.squeeze(batch_validation_image, axis=1)                             
 		batch_validation_bbox = tf.squeeze(batch_validation_bbox, axis=1)
 		batch_validation_labels = tf.squeeze(batch_validation_labels, axis=1)
+
+		batch_validation_labels = remove_irrelevant_label(batch_validation_labels, class_name_dict)
 	
     	# validation data와 model의 predictor간의 loss값 compute
 		(validation_total_loss,
@@ -228,12 +230,15 @@ def save_validation_result(model,
 		image = tf.expand_dims(image, axis=0)  # make dummy dimasion
 
 		predict = model(image)
+		# predict[0] == pred_class
+		# predict[1] == pred_confidence
+		# predict[2] == pred_coordinate
+
 		# tf.shape(predict)[0] == batch_size
-		predict = tf.reshape(predict, 
-				 [tf.shape(predict)[0], cell_size, cell_size, num_classes + (5 * boxes_per_cell)])
+		
 		
 		# parse prediction(x, y, w, h)
-		predict_boxes = predict[0, :, :, num_classes + boxes_per_cell:]
+		predict_boxes = predict[2]
 		predict_boxes = tf.reshape(predict_boxes, [cell_size, cell_size, boxes_per_cell, 4])
 		
 
@@ -277,21 +282,23 @@ def save_validation_result(model,
 		ground_truth_bounding_box_info_list = []
 		for each_object_num in range(object_num):
 			labels = np.array(labels)
-			labels = labels.astype('float32')
 			label = labels[each_object_num, :]
 			xcenter = label[0]
 			ycenter = label[1]
 			box_w = label[2]
 			box_h = label[3]
 			class_label = label[4]
+			
+			# [1., 0.] 일 때 index_one == 0, [0., 1.] 일 때 index_one == 1
+			index_one = tf.argmax(class_label, axis = 0)
 		  
 			# add ground-turth bounding box dict list
 			# 특정 class에만 ground truth bounding box information을 draw
-			for label_num in class_name_dict.keys():
-				if int(class_label) == label_num:     
+			for label_num in range(num_classes):
+				if int(index_one) == label_num:     
 					ground_truth_bounding_box_info_list.append(
 						yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h,
-						 str(class_name_dict[label_num]), 1.0))
+						 str(label_to_class_dict[label_num]), 1.0))
 
 		ground_truth_drawing_image = drawing_image.copy()
 		# draw ground-truth image
@@ -310,8 +317,6 @@ def save_validation_result(model,
 		# find one max confidence bounding box
 		# Non-maximum suppression을 사용하지 않고, 약식으로 진행 (confidence 상위 두 개의 bounding box 선택)
 		confidence_bounding_box_list = find_enough_confidence_bounding_box(bounding_box_info_list,
-																		   FLAGS.tensorboard_log_path,
-																		   ckpt.step,
 																		   validation_image_index)
 
 
