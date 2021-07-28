@@ -18,17 +18,9 @@
 
 ### **todo list**
 
-- modify class loss 
+- one_hot encoding
 
-  1. [add_one_hot_encoding](#'modify compute method for P')
-
-  2. [ `pred_P`에 activation function 적용](#'modify compute method for pred_P')
-
-  3. [modify class loss function](#class_loss_function)
-- modify object loss
-  1. label값 변경
-  2. `pred_C`에 activation function 적용
-  3. modify class loss function
+  
 
 
 
@@ -88,8 +80,12 @@
 **변경 전 **
 
 ```python
-P = tf.one_hot(tf.cast(label[4], tf.int32), num_classes, dtype=tf.float32)
+I = iou_predict_truth 
+max_I = tf.reduce_max(I, 2, keepdims=True)
+best_box_mask = tf.cast((I >= max_I), tf.float32) 
 ```
+
+> I = 0 이면 best_box_mask의 모든 element가 1이 된다.
 
 
 
@@ -104,10 +100,6 @@ P = tf.constant(temp_P)
 ```
 
 > label은 scala이기 때문에 loss function의 input pred_P와 맞게 shape을 만들어줘야 한다.
-
-
-
-
 
 
 

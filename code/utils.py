@@ -155,19 +155,20 @@ def iou(yolo_pred_boxes, ground_truth_boxes):
 					   boxes2[0] + boxes2[2] / 2, boxes2[1] + boxes2[3] / 2])
 	boxes2 = tf.cast(boxes2, tf.float32)
 
+
 	# calculate the left up point
-	lu = tf.maximum(boxes1[:, :, :, 0:2], boxes2[0:2])  # 교집합 영역의 우측 상단 꼭지점 좌표
-	rd = tf.minimum(boxes1[:, :, :, 2:], boxes2[2:])	# 교집합 영역의 좌측 하단 꼭지점 좌표
+	lu = tf.maximum(boxes1[:, :, :, 0:2], boxes2[0:2])  # 교집합 영역의 좌측 하단 꼭지점 좌표
+	rd = tf.minimum(boxes1[:, :, :, 2:], boxes2[2:])	# 교집합 영역의 우측 상단 꼭지점 좌표
 
 	# intersectiony
 	intersection = rd - lu  
 
-	inter_square = intersection[:, :, :, 0] * intersection[:, :, :, 1] # x크기 * y크기 == 넓역
+	inter_square = intersection[:, :, :, 0] * intersection[:, :, :, 1] # x크기 * y크기 == 넓이
 
-	# 위에서 계산된 intersection 영역 중에서 0보다 큰 영역만이 진짜 교집합 영역(음수 * 음수)
+	# 위에서 계산된 intersection 영역 중에서 x, y 모두 0보다 큰 값이 있어야 교집합이 존재.
 	mask = tf.cast(intersection[:, :, :, 0] > 0, tf.float32) * tf.cast(intersection[:, :, :, 1] > 0, tf.float32)
 
-	# 각 cell 마다, 그리고 각 Bbox마다 교집합 영역 계산
+	# 각 cell 마다, 그리고 각 Bbox중 교집합이 존재하는 cell과 box만 True
 	inter_square = mask * inter_square
 
 	# calculate the boxs1 square and boxs2 square
@@ -177,7 +178,6 @@ def iou(yolo_pred_boxes, ground_truth_boxes):
 	iou = inter_square / (square1 + square2 - inter_square + 1e-6)
 	# '1e-6' : for the denominator to not zero
 	# 교집합 영역이 없으면 iou는 zero
-
 	return iou
 
 
@@ -223,7 +223,7 @@ def x_y_center_sort(labels, taget):
 			if i_value == j_value:
 				tmp[i_index] = labels[j_index]
 				continue
-	labels = tf.constant(tmp)
+	labels = tf.constant(tmp.astype(float))
 	
 	return labels
 

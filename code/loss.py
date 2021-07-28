@@ -49,13 +49,14 @@ def yolo_loss(predict,
 	# 각 cell의 각 Bbox와 label과의 iou계산 tf.shape(iou_predict_truth):, [7 7 2]
 	iou_predict_truth = iou(predict_boxes, label[0:4]) 
 
-	# find best box mask
-	I = iou_predict_truth
+	# find best box mask(두 Bbox중에서 IOU가 큰 Bbox선택)
+	I = iou_predict_truth 	
 	max_I = tf.reduce_max(I, 2, keepdims=True)
-	best_box_mask = tf.cast((I >= max_I), tf.float32) # IOU가 가장 큰 call == object가 위치한 cell
+	best_box_mask = tf.cast((I >= max_I), tf.float32) 
 
+	
 	# set object_loss information(confidence, object가 있을 확률)
-	C = iou_predict_truth # object가 있는 cell에만 적용될 값이고, 해당 cell에서 IOU는 1이다.	
+	C = iou_predict_truth # object가 있는 cell에만 적용될 값이고, 해당 cell에서 IOU는 1이다.
 	pred_C = predict[1]
 	pred_C = tf.squeeze(pred_C)
 	
@@ -83,12 +84,12 @@ def yolo_loss(predict,
 	object_loss = tf.reduce_sum(object_exists_cell * best_box_mask * confidence_loss_object(C, pred_C) * object_scale)
 
 	# noobject_loss
-	noobject_loss = tf.reduce_sum((1 - object_exists_cell) * confidence_loss_object(0, pred_C) * noobject_scale)
+	noobject_loss = tf.reduce_sum((1 - object_exists_cell) * best_box_mask * confidence_loss_object(0, pred_C) * noobject_scale)
 
 	# class loss
 	class_loss = tf.reduce_sum(object_exists_cell * class_scale * class_loss_object(P, pred_P))
 
 	# sum every loss
 	total_loss = coord_loss + object_loss + noobject_loss + class_loss
-        
+
 	return total_loss, coord_loss, object_loss, noobject_loss, class_loss

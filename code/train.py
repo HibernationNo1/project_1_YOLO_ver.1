@@ -99,6 +99,9 @@ def calculate_loss(model, batch_image, batch_bbox, batch_labels, class_loss_obje
 		# predict[1] == pred_confidence
 		# predict[2] == pred_coordinate
 
+
+		
+
 		# 지울것
 		pred_C = predict[1]
 		pred_C = tf.squeeze(pred_C)
