@@ -108,23 +108,29 @@ def draw_bounding_box_and_label_info(frame, x_min, y_min, x_max, y_max, label, c
 				lineType)
     
 
-def find_enough_confidence_bounding_box(bounding_box_info_list, validation_image_index):
+def find_confidence_bounding_box(bounding_box_info_list, confidence_threshold, y):
 	bounding_box_info_list_sorted = sorted(bounding_box_info_list,
 											key=itemgetter('confidence_score'),
 											reverse=True)
 	confidence_bounding_box_list = list()
+	print(f"confidence_score : {bounding_box_info_list_sorted[0]['confidence_score']:.2f}")
+	print(f"class_probability : {bounding_box_info_list_sorted[0]['class_probability']:.2f},	 index : {bounding_box_info_list_sorted[0]['x']:.2f}, label: {y}")
+	print(f"iou_predict_truth : {bounding_box_info_list_sorted[0]['iou_predict_truth']:.2f}")
+	print(f"class_name : {bounding_box_info_list_sorted[0]['class_name']}")
 
-	# 가장 큰 confidence_score를 출력
-	print(f'image index:{validation_image_index},  best_confidence_score: {bounding_box_info_list_sorted[0]["confidence_score"]}')
-	
-	# confidence값이 0.5 이상인 Bbox는 모두 표현
-	for index, features in enumerate(bounding_box_info_list_sorted):
-		if bounding_box_info_list_sorted[index]['confidence_score'] > 0.5:
+
+	# confidence값이 confidence_threshold 이상인 Bbox는 모두 표현
+	for index in range(len(bounding_box_info_list_sorted)):
+		if bounding_box_info_list_sorted[index]['confidence_score'] > confidence_threshold:
 			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
+			print(f"confidence_score : {bounding_box_info_list_sorted[index]['confidence_score']:.2f}")
+		else : 
+			break
+	print("\n")
 
 	return confidence_bounding_box_list
 
-def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name, confidence_score):
+def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name, confidence_score, class_probability, iou_predict_truth, x):
 	# the zero coordinate of image located
 	bounding_box_info = dict()
 	bounding_box_info['left'] = int(xcenter - (box_w / 2))
@@ -133,6 +139,10 @@ def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name,
 	bounding_box_info['bottom'] = int(ycenter - (box_h / 2))
 	bounding_box_info['class_name'] = class_name
 	bounding_box_info['confidence_score'] = confidence_score
+
+	bounding_box_info['class_probability'] = class_probability
+	bounding_box_info['iou_predict_truth'] = iou_predict_truth
+	bounding_box_info['x'] = x
 
 	return bounding_box_info
 
@@ -195,18 +205,22 @@ def generate_color(num_classes):
 	return colors
 
 # detect할 class에 대한 label만 추려내고, 나머지 label은 0으로 만드는 function
-def remove_irrelevant_label(batch_labels, class_name_dict):
-	tmp = np.zeros_like(batch_labels)
+def remove_irrelevant_label(batch_bbox, batch_labels, class_name_dict):
+	tmp_labels = np.zeros_like(batch_labels)
+	tmp_bbox = np.zeros_like(batch_bbox)
 
-	for i in range(int(tf.shape(batch_labels)[0])):
-		for j in range(int(tf.shape(batch_labels)[1])):
+	for i in range(int(tf.shape(batch_labels)[0])): 		# image 1개당
+		for j in range(int(tf.shape(batch_labels)[1])):		# object 1개당
 			for lable_num in class_name_dict.keys(): 
 				if batch_labels[i][j] == lable_num:
-					tmp[i][j] = batch_labels[i][j]
+					tmp_labels[i][j] = batch_labels[i][j]
+					tmp_bbox[i][j] = batch_bbox[i][j]
 					continue
-	batch_labels = tf.constant(tmp)
 
-	return batch_labels
+	batch_labels = tf.constant(tmp_labels)
+	batch_bbox = tf.constant(tmp_bbox)
+
+	return batch_bbox, batch_labels
 
 def x_y_center_sort(labels, taget):
 
@@ -223,7 +237,7 @@ def x_y_center_sort(labels, taget):
 			if i_value == j_value:
 				tmp[i_index] = labels[j_index]
 				continue
-	labels = tf.constant(tmp.astype(float))
+	labels = tmp
 	
 	return labels
 
@@ -261,7 +275,8 @@ def performance_evaluation(confidence_bounding_box_list,
 			
 			pred_list[each_object_num][0] = xcenter
 			pred_list[each_object_num][1] = ycenter
-			pred_list[each_object_num][2] = class_name_to_label_dict[str(confidence_bounding_box_list[0]['class_name'])] # pred_class_num
+			# pred_class_num  cat이면 7.0 반환
+			pred_list[each_object_num][2] = class_name_to_label_dict[str(confidence_bounding_box_list[0]['class_name'])] 
 
 		if object_num == 1:
 			# label class와 예측한 class가 같다면
@@ -276,10 +291,15 @@ def performance_evaluation(confidence_bounding_box_list,
 
 			# x좌표가 낮은 위치의 image부터 큰 위치의 image까지 detected image의 class가 동일지 확인
 			for x_each_object_num in range(object_num): 
-				x_center_sort_label = x_center_sort_labels[x_each_object_num, :]
-				x_center_sort_pred = x_center_sort_pred_list[x_each_object_num, :]
+				x_center_sort_label = x_center_sort_labels[x_each_object_num, :]   	# one_hot_label_num
+				x_center_sort_pred = x_center_sort_pred_list[x_each_object_num, :]	# pred_class_num
 				
-				if int(x_center_sort_label[4]) == int(x_center_sort_pred[2]): # class가 동일하면 pass
+				# one_hot 형태의 label num을 class num형태로 변환
+				x_o_h_index = tf.argmax(x_center_sort_label[4]) 
+				x_label_class_num = int(class_name_to_label_dict[str(confidence_bounding_box_list[x_o_h_index]['class_name'])])
+				
+				x_pred_class_num = int(x_center_sort_pred[2])
+				if x_label_class_num == x_pred_class_num : # class가 동일하면 pass
 					pass
 				else : 
 					break # 하나라도 다르면 break
@@ -289,7 +309,12 @@ def performance_evaluation(confidence_bounding_box_list,
 					for y_each_object_num in range(object_num):
 						y_center_sort_label = y_center_sort_labels[y_each_object_num, :]
 						y_center_sort_pred = y_center_sort_pred_list[y_each_object_num, :]
-						if int(y_center_sort_label[4]) == int(y_center_sort_pred[2]):
+
+						y_o_h_index = tf.argmax(y_center_sort_label[4]) 
+						y_label_class_num = int(class_name_to_label_dict[str(confidence_bounding_box_list[y_o_h_index]['class_name'])])
+						
+						y_pred_class_num = int(y_center_sort_pred[2])
+						if y_label_class_num == y_pred_class_num:
 							pass
 						else : 
 							break # 하나라도 다르면 break	
@@ -298,6 +323,7 @@ def performance_evaluation(confidence_bounding_box_list,
 							correct_answers_class_num +=1
 	elif detection_rate > 1: # label보다 더 많은 object를 detection했을 때
 		print("Over detection")
+		detection_rate = 0.0
 	else :
 		print(f"detection_rate = {detection_rate}")
 
