@@ -5,7 +5,7 @@ import tensorflow_datasets as tfds
 
 # dict of classes to detect 
 class_name_dict = {
-	7: "cat", 9:"cow"
+	7: "cat", 11: "dog", 12: "horse"
 }
 
 def predicate(x):  # x는 하나의 data.
@@ -128,6 +128,7 @@ def process_each_ground_truth(original_image,
 			if int(class_num) == list(class_name_dict.keys())[j]:
 				class_num = oh_class_num[j]
 				break
+		
 
 		# resizing 된 image에 맞는 center coordinate 
 		xcenter = (xmin + xmax) * 1.0 / 2 * width_rate 
