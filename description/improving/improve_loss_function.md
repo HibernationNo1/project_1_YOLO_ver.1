@@ -2,25 +2,23 @@
 
 
 
-- 기존 code의 `loss_function`에서 label값으로 사용되는 `P`에 `tf.one_hot`이 적용되고,  `tf.one_hot`의 첫 번째 argument는  `label[4]`가 사용된다.
-
-  이 때 `tf.one_hot`의 첫 번째 argument는 모든 label class가 할당되어야 하지만 `label[4]`는 특정 단일 class의 label number값을 가지고 있어 반환값이 [0, 0] 으로 나오는 것을 확인했다.
-
-  (tf.one_hot은 단일 label에 적용되는것이 아닌, 전체 label data에 적용되어야 한다.)
-
-  >num_class가 2일 때 `P` 의 값은 [0, 1] 또는 [1, 0]의 값이,
-  >
-  >num_class가 3일 때 `P` 의 값은 [0, 0, 1] 또는 [0, 1, 0] 또는 [1, 0, 0]의 값이 사용되어야 한다고 생각한다.
-
-
-
-
-
 ### **todo list**
 
-- one_hot encoding
+- [modify one_hot encoding](#'add one hot encoding')
 
+- [modify confidence loss](#'confidence loss')
+
+  기존 code의 confidence loss를 구성하고 있는 obejct loss와 noobejct loss는 MSE 방식으로 loss를 계산하기 때문에 label값 `C`는 label Bbox와 predicted value간의 interception union을 사용했다.
   
+  하지만 initial prediction value는 학습이 되지 않은 값이기 때문에 0에 가까운 값을 반환한다. 
+  
+  그렇기 때문에 학습의 처음부터 잘못된 loss값이 사용되는 것이다.
+  
+  그래서 더욱 정확한 예측을 위해 `tf.nn.sigmoid_cross_entropy_with_logits()`를 적용했으며, 이를 위해서 label값을 구성하는 방법을 수정했다.
+  
+- [modify class loss](#'class loss ')
+
+  class loss는 예측한 특정 class에 대한 probability를 표현하기 때문에 사용되는 loss functiond은 MSE가 아닌 CategoricalCrossentropy가 적절하다고 판단했다.
 
 
 
@@ -75,7 +73,7 @@
 
 
 
-`yolo_loss function` 에서도 `P`값의 code수정
+loss.py의 `yolo_loss` function 에서도 `P`값의 code수정
 
 **변경 전 **
 
@@ -103,11 +101,9 @@ P = tf.constant(temp_P)
 
 
 
-#### class_loss
+#### confidence loss
 
-##### modify `pred_C`, `pred_P`
-
-model.py에서 각 units를 학습 목적에 맞게 분류하고 activation function을 적용했기 때문에 loss.py의 `pred_c`와 `pred_P`의 호출 과정을 수정했다.
+model.py에서 각 units를 학습 목적에 맞게 분류했기 때문에 loss.py의 `pred_c`의 호출 과정을 수정했다.
 
 
 
@@ -121,83 +117,56 @@ pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell]
 
 ```python
 pred_C = predict[1]
-pred_C = tf.squeeze(pred_C)
+pred_C = tf.squeeze(pred_C, [0])
 ```
 
 
 
-**변경 전 `pred_P`**
+##### label
 
-```python
-pred_P = predict[:, :, 0:num_classes] 
-```
+특정 cell의 Bbox와 labels 사이의 intersection of union값이 0이 아니면 object loss의 label은 0으로, 존재하면 두 Bbox 중 높은 iou값을 가진 Bbox만 1을 할당하도록 object loss를 구성했으며
 
-**변경 후 `pred_P`**
-
-```python
-pred_P = predict[0]
-pred_P = tf.squeeze(pred_P)
-```
+noobject loss는 object loss의 계산에서 indicator function의 차이만 있음을 반영했다.
 
 
 
-
-
-##### modify `C`
-
-confidence loss의 label값 `C`는 label Bbox와 predicted value간의 interception union을 사용했다.
-
-하지만 initial prediction value는 학습이 되지 않은 값이기 때문에 0에 가까운 값을 반환한다. 
-
-그렇기 때문에 학습의 처음부터 잘못된 loss값이 사용되는 것이다.
-
-이상적인 학습을 위한 confidence loss의 label값은 1이다. indicator function에 의해 object가 있는 cell에 대해서 confidence value는 반드시 1이기 때문이다.
-
-
-
-**변경 전 `c`**
+**변경 전 label `c`**
 
 ```python
 C = iou_predict_truth
 ```
 
-**변경 후 `c`**
+
+
+**변경 후 object loss label  `C_object`,  noobject loss label  `C_noobject`**
 
 ```python
-C = 1
+	# set object_loss information(confidence, object가 있을 확률)
+	C = iou_predict_truth 
+
+	arg_c = tf.argmax(C, axis = 2)
+	tmp_object= np.zeros_like(C)
+	for i in range(cell_size):
+		for j in range(cell_size):
+			# 특정 cell의 두 Bbox의 IOU가 0이면 해당 cell의 object label을 전부 0으로 유지
+			if tf.reduce_max(C[i][j]) == 0:    	
+				pass
+			else :
+				# 두 Bbox중 높은 iou를 가지면 1, 아니면 0의 값 (one_hot) 
+				tmp_object[i][j][arg_c[i][j]] = 1  			
+	C_label = tf.constant(tmp_object)
 ```
 
 
 
+##### object_loss, noobject_loss 
 
-
-##### class_loss_function
-
-class loss는 예측한 특정 class에 대한 probability를 표현하기 때문에 사용되는 loss functiond은 MSE가 아닌 CategoricalCrossentropy가 적절하다고 판단했다.
-
-변경 전 `class_loss`
-
-```python
-class_loss = tf.nn.l2_loss(object_exists_cell * (pred_P - P)) * class_scale
-```
+object_loss와 noobject_loss의 값의 범위를 sigmoid로 0~1으로 맞추고, cross entropy를 사용해서 loss를 계산하였다.
 
 
 
-변경 후 `class_loss`
-
-```python
-class_loss = tf.reduce_sum(object_exists_cell * class_scale * class_loss_object(P, pred_P))
-```
-
-> class_loss_object는 train.py에서 선언된 CategoricalCrossentropy의 object이다.
-
-
-
-
-
-##### confidence_loss_function
-
-object_loss와 noobject_loss의 값의 범위가 sigmoid로 인해 0~1이기 때문에 loss function으로 MSE보다 **BCE**를 사용하는게 옳은 방법이다
+tf.sigmoid를 먹이고 tensorflow.keras.losses.BinaryCrossentropy와 tf.nn.sigmoid_cross_entropy_with_logits의 차이점
+전자는 학습이 잘 안되고 후자는 잘됨 왜? <<이거 수정할것
 
 
 
@@ -212,10 +181,61 @@ confidence_loss = object_loss + noobject_loss
 **변경 후 `confidence_loss`**
 
 ```python
-object_loss = tf.reduce_sum(object_exists_cell * best_box_mask * confidence_loss_object(C, pred_C) * object_scale)
+# object_loss
+object_loss =  tf.reduce_mean(object_exists_cell * best_box_mask * object_scale * tf.nn.sigmoid_cross_entropy_with_logits(C_label, pred_C))
+		
+# noobject_loss
+noobject_loss = tf.reduce_mean((1 - object_exists_cell) * best_box_mask * tf.nn.sigmoid_cross_entropy_with_logits(C_label, pred_C) * noobject_scale)
 
-noobject_loss = tf.reduce_sum((1 - object_exists_cell) * confidence_loss_object(0, pred_C) * noobject_scale)
+confidence_loss = object_loss + noobject_loss
 ```
 
 > confidence_loss_object는 train.py에서 선언된 BinaryCrossentropy의 object이다.
+
+
+
+
+
+
+
+#### class loss 
+
+model.py에서 각 units를 학습 목적에 맞게 분류했기 때문에 loss.py의 `pred_P`의 호출 과정을 수정했다.
+
+
+
+**변경 전 `pred_P`**
+
+```python
+pred_P = predict[:, :, 0:num_classes] 
+```
+
+**변경 후 `pred_P`**
+
+```python
+pred_P = predict[0]
+pred_P = tf.squeeze(pred_P, [0])
+```
+
+
+
+
+
+**변경 전 `class_loss`**
+
+```python
+class_loss = tf.nn.l2_loss(object_exists_cell * (pred_P - P)) * class_scale
+```
+
+
+
+**변경 후 `class_loss`**
+
+```python
+class_loss = tf.reduce_sum(object_exists_cell * class_scale * tf.nn.softmax_cross_entropy_with_logits(P, pred_P))
+```
+
+
+
+
 

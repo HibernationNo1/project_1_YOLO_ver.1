@@ -17,26 +17,36 @@ ex)
 > detection target class가 7(cat), 9(cow일 때)
 >
 > `train_data`의 `feature[object][label]`을 확인해보면 4, 14, 와 같이 7, 9외의 element가 있는 것을 확인할 수 있다.
+>
+> class_labels == [11 7 14 9 0 0]
+>
+> 일 때 class_labels == [0 7 0 9 0 0] 으로 만들어준다.
 
 
 
-**remove_irrelevant_label**
+##### **remove_irrelevant_label**
 
-detect할 class에 대한 label만 추려내고, 나머지 label은 0으로 만드는 function
+detect할 class에 대한 label만 추려내고, 나머지 label은 0으로 만드는 function.
+
+Bbox label에도 target label이외의 element는 0으로 만들었다.
 
 ```python
-def remove_irrelevant_label(batch_labels, class_name_dict):
-	tmp = np.zeros_like(batch_labels)
+def remove_irrelevant_label(batch_bbox, batch_labels, class_name_dict):
+	tmp_labels = np.zeros_like(batch_labels)
+	tmp_bbox = np.zeros_like(batch_bbox)
 
-	for i in range(int(tf.shape(batch_labels)[0])):
-		for j in range(int(tf.shape(batch_labels)[1])):
+	for i in range(int(tf.shape(batch_labels)[0])): 		# image 1개당
+		for j in range(int(tf.shape(batch_labels)[1])):		# object 1개당
 			for lable_num in class_name_dict.keys(): 
 				if batch_labels[i][j] == lable_num:
-					tmp[i][j] = batch_labels[i][j]
+					tmp_labels[i][j] = batch_labels[i][j]
+					tmp_bbox[i][j] = batch_bbox[i][j]
 					continue
-	batch_labels = tf.constant(tmp)
 
-	return batch_labels
+	batch_labels = tf.constant(tmp_labels)
+	batch_bbox = tf.constant(tmp_bbox)
+
+	return batch_bbox, batch_labels
 ```
 
 
@@ -53,7 +63,7 @@ def remove_irrelevant_label(batch_labels, class_name_dict):
 
 
 
-##### Considerations
+##### index_reorder
 
 `class_labels == [0 7 0 0 0 0]`  또는  `class_labels == [0 7 0 9 0 0]` 와 같이 앞의 index에 위치한 element가 0이 있는 `class_labels` 일 경우, labels initialize 과정에서 for문의 iteration 횟수가 부족해 labeling이 제대로 되지 않는 경우가 발생할 수 있다.
 
@@ -126,9 +136,49 @@ def remove_irrelevant_label(batch_labels, class_name_dict):
 
    
 
+##### label number check code
+
+```python
+import tensorflow as tf
+import cv2
+import tensorflow_datasets as tfds
+
+def predicate(x):  # x는 하나의 data.
+	label = x['objects']['label']
+	
+	# 7또는 9라는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
+	reduced_sum = 0.0
 
 
+	isallowed = tf.equal((tf.constant([float(13)])), tf.cast(label, tf.float32)) # label이 label_num인 element만 True
+	reduced = tf.reduce_sum(tf.cast(isallowed, tf.float32)) 	# label이 class_num인 element의 개수
+	reduced_sum += reduced
+
+	return tf.greater(reduced_sum, tf.constant(0.))  # label이 7인 element의 개수가 0보다 클 때(1개 이상일때) True
 
 
+voc2007_test_split_data = tfds.load("voc/2007", split=tfds.Split.TEST, batch_size=1)
+voc2012_train_split_data = tfds.load("voc/2012", split=tfds.Split.TRAIN, batch_size=1)
+voc2012_validation_split_data = tfds.load("voc/2012", split=tfds.Split.VALIDATION, batch_size=1)
 
+train_data = voc2007_test_split_data.concatenate(voc2012_train_split_data).concatenate(voc2012_validation_split_data)
+
+train_data = train_data.filter(predicate) # 7 label 만 정제해서 할당 
+train_data = train_data.padded_batch(12)
+
+for iter, features in enumerate(train_data):
+	batch_image = features['image']
+	batch_image = tf.squeeze(batch_image, axis=1)[iter, :, :, :].numpy()
+	
+	cv2.imshow('image', batch_image)
+	while True:
+		if cv2.waitKey() == 27:  # 27은 esc의 아스키 코드임
+			break
+
+# 7: "cat"
+# 11: "dog"
+# 12: "horse"
+# 13: "bike"
+# 14: "human"
+```
 

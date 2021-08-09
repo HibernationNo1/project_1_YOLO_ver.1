@@ -133,7 +133,8 @@ def performance_evaluation(confidence_bounding_box_list,
 			
 			pred_list[each_object_num][0] = xcenter
 			pred_list[each_object_num][1] = ycenter
-			pred_list[each_object_num][2] = class_name_to_label_dict[str(confidence_bounding_box_list[0]['class_name'])] # pred_class_num
+			# pred_class_num  cat이면 7.0 반환
+			pred_list[each_object_num][2] = class_name_to_label_dict[str(confidence_bounding_box_list[0]['class_name'])] 
 
 		if object_num == 1:
 			# label class와 예측한 class가 같다면
@@ -148,10 +149,15 @@ def performance_evaluation(confidence_bounding_box_list,
 
 			# x좌표가 낮은 위치의 image부터 큰 위치의 image까지 detected image의 class가 동일지 확인
 			for x_each_object_num in range(object_num): 
-				x_center_sort_label = x_center_sort_labels[x_each_object_num, :]
-				x_center_sort_pred = x_center_sort_pred_list[x_each_object_num, :]
+				x_center_sort_label = x_center_sort_labels[x_each_object_num, :]   	# one_hot_label_num
+				x_center_sort_pred = x_center_sort_pred_list[x_each_object_num, :]	# pred_class_num
 				
-				if int(x_center_sort_label[4]) == int(x_center_sort_pred[2]): # class가 동일하면 pass
+				# one_hot 형태의 label num을 class num형태로 변환
+				x_o_h_index = tf.argmax(x_center_sort_label[4]) 
+				x_label_class_num = int(class_name_to_label_dict[str(confidence_bounding_box_list[x_o_h_index]['class_name'])])
+				
+				x_pred_class_num = int(x_center_sort_pred[2])
+				if x_label_class_num == x_pred_class_num : # class가 동일하면 pass
 					pass
 				else : 
 					break # 하나라도 다르면 break
@@ -161,7 +167,12 @@ def performance_evaluation(confidence_bounding_box_list,
 					for y_each_object_num in range(object_num):
 						y_center_sort_label = y_center_sort_labels[y_each_object_num, :]
 						y_center_sort_pred = y_center_sort_pred_list[y_each_object_num, :]
-						if int(y_center_sort_label[4]) == int(y_center_sort_pred[2]):
+
+						y_o_h_index = tf.argmax(y_center_sort_label[4]) 
+						y_label_class_num = int(class_name_to_label_dict[str(confidence_bounding_box_list[y_o_h_index]['class_name'])])
+						
+						y_pred_class_num = int(y_center_sort_pred[2])
+						if y_label_class_num == y_pred_class_num:
 							pass
 						else : 
 							break # 하나라도 다르면 break	
@@ -170,6 +181,7 @@ def performance_evaluation(confidence_bounding_box_list,
 							correct_answers_class_num +=1
 	elif detection_rate > 1: # label보다 더 많은 object를 detection했을 때
 		print("Over detection")
+		detection_rate = 0.0
 	else :
 		print(f"detection_rate = {detection_rate}")
 
@@ -203,7 +215,7 @@ def x_y_center_sort(labels, taget):
 			if i_value == j_value:
 				tmp[i_index] = labels[j_index]
 				continue
-	labels = tf.constant(tmp)
+	labels = tmp
 	
 	return labels
 ```
@@ -230,18 +242,17 @@ def save_validation_result(model,
 	detection_rate_sum +=detection_rate
     
     
-	average_detection_rate = detection_rate / num_visualize_image  				# 평균 object detection 비율	
+		detection_rate_sum +=detection_rate
+		success_detection_num += detection_num
+		correct_answers_class_num += class_num
+		total_object_num += object_num
+		
+	print(f"num_visualize_image: {num_visualize_image}")
+	average_detection_rate = detection_rate_sum / num_visualize_image  				# 평균 object detection 비율	
 	perfect_detection_accuracy = success_detection_num / num_visualize_image	# 완벽한 object detection이 이루어진 비율
-	classification_accuracy = correct_answers_class_num / num_visualize_image 	# 정확한 classicifiation이 이루어진 비율
-	
-	with average_detection_rate_writer.as_default():
-		tf.summary.scalar('average_detection_rate', average_detection_rate, step=int(ckpt.step))
-
-	with perfect_detection_accuracy_writer.as_default():
-		tf.summary.scalar('perfect_detection_accuracy', perfect_detection_accuracy, step=int(ckpt.step))
-
-	with classification_accuracy_writer.as_default():
-		tf.summary.scalar('classicifiation_accuracy', classification_accuracy, step=int(ckpt.step))	
-    
+	classification_accuracy = correct_answers_class_num / total_object_num 	# 정확한 classicifiation이 이루어진 비율
+	print(f"average_detection_rate: {average_detection_rate}")
+	print(f"perfect_detection_accuracy: {perfect_detection_accuracy}")
+	print(f"classification_accuracy: {classification_accuracy}")
 ```
 
