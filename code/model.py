@@ -23,13 +23,13 @@ class YOLOv1(Model):
 		x = Dropout(0.2)(x)
 		# flatten vector -> cell_size x cell_size x (num_classes + 5 * boxes_per_cell)
 		pred_class = x[:,  : cell_size * cell_size * num_classes]
-		pred_class = Dense(cell_size * cell_size * num_classes, activation=None, kernel_regularizer = L2(l = 0.02))(pred_class)
+		pred_class = Dense(cell_size * cell_size * num_classes, activation=None, kernel_regularizer = L2(l = 0.01))(pred_class)
 
 		pred_confidence = x[:,  cell_size * cell_size * num_classes: (cell_size * cell_size * num_classes) + (cell_size * cell_size * boxes_per_cell)]
-		pred_confidence = Dense(cell_size * cell_size * boxes_per_cell, activation=None, kernel_regularizer = L2(l=0.01))(pred_confidence)
+		pred_confidence = Dense(cell_size * cell_size * boxes_per_cell, activation=None, kernel_regularizer = L2(l=0.04))(pred_confidence)
 
 		pred_coordinate = x[:, (cell_size * cell_size * num_classes) + (cell_size * cell_size * boxes_per_cell): ]
-		pred_coordinate = Dense(cell_size * cell_size * (boxes_per_cell*4), activation=None, kernel_regularizer = L1(l=0.08))(pred_coordinate)		
+		pred_coordinate = Dense(cell_size * cell_size * (boxes_per_cell*4), activation=None, kernel_regularizer = L1(l=0.10))(pred_coordinate)		
 
 
 		pred_class = tf.reshape(pred_class, 

@@ -108,29 +108,25 @@ def draw_bounding_box_and_label_info(frame, x_min, y_min, x_max, y_max, label, c
 				lineType)
     
 
-def find_confidence_bounding_box(bounding_box_info_list, confidence_threshold, y):
+def find_confidence_bounding_box(bounding_box_info_list, confidence_threshold):
 	bounding_box_info_list_sorted = sorted(bounding_box_info_list,
-											key=itemgetter('confidence_score'),
+											key=itemgetter('iou'),
 											reverse=True)
 	confidence_bounding_box_list = list()
-	print(f"confidence_score : {bounding_box_info_list_sorted[0]['confidence_score']:.2f}")
-	print(f"class_probability : {bounding_box_info_list_sorted[0]['class_probability']:.2f},	 index : {bounding_box_info_list_sorted[0]['x']:.2f}, label: {y}")
-	print(f"iou_predict_truth : {bounding_box_info_list_sorted[0]['iou_predict_truth']:.2f}")
-	print(f"class_name : {bounding_box_info_list_sorted[0]['class_name']}")
 
 
 	# confidence값이 confidence_threshold 이상인 Bbox는 모두 표현
 	for index in range(len(bounding_box_info_list_sorted)):
-		if bounding_box_info_list_sorted[index]['confidence_score'] > confidence_threshold:
+		if (bounding_box_info_list_sorted[index]['iou'] > confidence_threshold
+			and bounding_box_info_list_sorted[index]['confidence_score'] > 0.6):
 			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
-			print(f"confidence_score : {bounding_box_info_list_sorted[index]['confidence_score']:.2f}")
+			# print(f"confidence_score : {bounding_box_info_list_sorted[index]['iou']:.2f}")
 		else : 
 			break
-	print("\n")
 
 	return confidence_bounding_box_list
 
-def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name, confidence_score, class_probability, iou_predict_truth, x):
+def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name, confidence_score, iou):
 	# the zero coordinate of image located
 	bounding_box_info = dict()
 	bounding_box_info['left'] = int(xcenter - (box_w / 2))
@@ -139,10 +135,7 @@ def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name,
 	bounding_box_info['bottom'] = int(ycenter - (box_h / 2))
 	bounding_box_info['class_name'] = class_name
 	bounding_box_info['confidence_score'] = confidence_score
-
-	bounding_box_info['class_probability'] = class_probability
-	bounding_box_info['iou_predict_truth'] = iou_predict_truth
-	bounding_box_info['x'] = x
+	bounding_box_info['iou'] = iou
 
 	return bounding_box_info
 
@@ -260,10 +253,10 @@ def performance_evaluation(confidence_bounding_box_list,
 
 	# label object 중 detection한 object의 비율
 	detection_rate = len(confidence_bounding_box_list)/object_num  
-	print(f"image_index: {validation_image_index},", end=' ')
+	#print(f"image_index: {validation_image_index},", end=' ')
 	if detection_rate == 1: # label과 같은 수의 object를 detection했을 때
 		success_detection_num +=1
-		print(f" detection_rate = {detection_rate}")
+		#print(f" detection_rate = {detection_rate}")
 
 		# detection_rate == 100% 일 때 correct_answers_class_num 계산 
 		for each_object_num in range(object_num): 
@@ -322,10 +315,11 @@ def performance_evaluation(confidence_bounding_box_list,
 						if x_each_object_num == object_num-1:   # y좌표 기준으로도 위 조건이 만족한다면 
 							correct_answers_class_num +=1
 	elif detection_rate > 1: # label보다 더 많은 object를 detection했을 때
-		print("Over detection")
+		#print("Over detection")
 		detection_rate = 0.0
 	else :
-		print(f"detection_rate = {detection_rate}")
+		#print(f"detection_rate = {detection_rate}")
+		pass
 
 		
 	return success_detection_num, correct_answers_class_num, detection_rate

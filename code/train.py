@@ -26,13 +26,13 @@ from utils import performance_evaluation, iou
 flags.DEFINE_string('checkpoint_path', default='saved_model', help='path to a directory to save model checkpoints during training')
 flags.DEFINE_integer('save_checkpoint_steps', default=50, help='period at which checkpoints are saved (defaults to every 50 steps)')
 flags.DEFINE_string('tensorboard_log_path', default='tensorboard_log', help='path to a directory to save tensorboard log')
-flags.DEFINE_integer('validation_steps', default=50, help='period at which test prediction result and save image')  # 몇 번의 step마다 validation data로 test를 할지 결정
+flags.DEFINE_integer('validation_steps', default=100, help='period at which test prediction result and save image')  # 몇 번의 step마다 validation data로 test를 할지 결정
 flags.DEFINE_integer('num_epochs', default=50, help='training epochs') # original paper : 135 epoch
 flags.DEFINE_float('init_learning_rate', default=0.0001, help='initial learning rate') # original paper : 0.001 (1epoch) -> 0.01 (75epoch) -> 0.001 (30epoch) -> 0.0001 (30epoch)
 flags.DEFINE_float('lr_decay_rate', default=0.5, help='decay rate for the learning rate')
-flags.DEFINE_integer('lr_decay_steps', default=100, help='number of steps after which the learning rate is decayed by decay rate') 
+flags.DEFINE_integer('lr_decay_steps', default=200, help='number of steps after which the learning rate is decayed by decay rate') 
 # 2000 step : init_learning_rate = 0.00005, 4000 step : init_learning_rate = 0.000025
-flags.DEFINE_integer('num_visualize_image', default=8, help='number of visualize image for validation')
+flags.DEFINE_integer('num_visualize_image', default=20, help='number of visualize image for validation')
 # 중간중간 validation을 할 때마다 몇 개의 batch size로 visualization을 할지 결정하는 변수
 
 FLAGS = flags.FLAGS
@@ -46,14 +46,14 @@ cat_class_to_label_dict = {v: k for k, v in label_to_class_dict.items()}
 
 # class_name_dict을 dataset.py에서 선언하는 이유 : train.py에서 선언하면 import 순환 이슈가 발생한다.
 from dataset import class_name_dict  
-# class_name_dict = class_name_dict = { 7: "cat", 11: "dog", 12: "horse", 14: "human"  }
+# class_name_dict = class_name_dict = { 7: "cat", 11: "dog", 12: "horse"}
 class_name_to_label_dict = {v: k for k, v in class_name_dict.items()}
 
 
 dir_name = 'train6'
 
 # 이전에 했던 training을 다시 시작하거나 처음 진행할 때 False, 계속 이어서 할 땐 True 
-CONTINUE_LEARNING = True
+CONTINUE_LEARNING = False
 
 # set configuration valuey
 batch_size = 32 	# original paper : 64
@@ -62,7 +62,7 @@ input_height = 224 	# original paper : 448
 cell_size = 7
 num_classes = int(len(class_name_dict.keys())) 	# original paper : 20
 boxes_per_cell = 2
-confidence_threshold = 0.5
+confidence_threshold = 0.6
 # set color_list for drawings
 color_list = generate_color(num_classes)
 
@@ -246,7 +246,7 @@ def save_validation_result(model,
 			box_h = label[3]
 			class_label = label[4]
 
-			class_label_index = tf.argmax(label[4])
+			class_label_index = tf.argmax(label[4])  # 지울거
 			
 			# [1., 0.] 일 때 index_one == 0, [0., 1.] 일 때 index_one == 1
 			index_one = tf.argmax(class_label, axis = 0)
@@ -257,7 +257,7 @@ def save_validation_result(model,
 				if int(index_one) == label_num:     
 					ground_truth_bounding_box_info_list.append(
 						yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h,
-						 str(label_to_class_dict[label_num]), 1.0, 1.0, 1.0, 0))
+						 str(label_to_class_dict[label_num]), 1.0, 1.0))
 					
 
 			# add prediction bounding box dict list
@@ -274,7 +274,9 @@ def save_validation_result(model,
 						iou_predict_truth = iou(predict_boxes, label[0:4])
 
 						# confedence_score = class_probability * intersection_of_union
-						confidence_score = pred_P[i][j][class_label_index] * iou_predict_truth[i][j][k]
+						# class_probability는 여러 class중 실제 정답에 대해 예측한 확률값을 사용한다.
+						confidence_score = pred_P[i][j][class_label_index] 
+						computed_iou = iou_predict_truth[i][j][k]
 						
 						# for문이 끝나면 bounding_box_info_list에는 (object_num * cell_size * cell_size * box_per_cell)개의 bounding box의 information이 들어있다.
 						# 각 bounding box의 information은 (x, y, w, h, class_name, confidence_score)이다.
@@ -285,9 +287,7 @@ def save_validation_result(model,
 																				   pred_box_h,
 																				   pred_class_name,
 																				   confidence_score,
-																				   pred_P[i][j][class_prediction[i][j]],
-																				   iou_predict_truth[i][j][k],
-																				   class_prediction[i][j]
+																				   computed_iou
 																				   ))
 	
 		ground_truth_drawing_image = drawing_image.copy()
@@ -306,7 +306,7 @@ def save_validation_result(model,
 		 
 		# find one max confidence bounding box
 		# Non-maximum suppression을 사용하지 않고, 약식으로 진행 (confidence 상위 두 개의 bounding box 선택)
-		confidence_bounding_box_list = find_confidence_bounding_box(bounding_box_info_list, confidence_threshold, class_label)
+		confidence_bounding_box_list = find_confidence_bounding_box(bounding_box_info_list, confidence_threshold)
 
 
 		# draw prediction (image 위에 bounding box 표현)
@@ -347,8 +347,8 @@ def save_validation_result(model,
 	average_detection_rate = detection_rate_sum / num_visualize_image  				# 평균 object detection 비율	
 	perfect_detection_accuracy = success_detection_num / num_visualize_image	# 완벽한 object detection이 이루어진 비율
 	classification_accuracy = correct_answers_class_num / total_object_num 	# 정확한 classicifiation이 이루어진 비율
-	print(f"average_detection_rate: {average_detection_rate}")
-	print(f"perfect_detection_accuracy: {perfect_detection_accuracy}")
+	print(f"average_detection_rate: {average_detection_rate:.2f}")
+	print(f"perfect_detection_accuracy: {perfect_detection_accuracy:.2f}")
 	print(f"classification_accuracy: {classification_accuracy:.2f}")
 
     

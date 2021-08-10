@@ -11,7 +11,7 @@ class_name_dict = {
 def predicate(x):  # x는 하나의 data.
 	label = x['objects']['label']
 	
-	# 7또는 9라는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
+	# class_name_dict의 key에 해당하는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
 	reduced_sum = 0.0
 
 	for label_num in class_name_dict.keys():
@@ -36,7 +36,7 @@ def load_pascal_voc_dataset(batch_size):
 	voc2007_validation_split_data = tfds.load("voc/2007", split=tfds.Split.VALIDATION, batch_size=1)
 	validation_data = voc2007_validation_split_data
     
-	train_data = train_data.filter(predicate) # 7 label 만 정제해서 할당 
+	train_data = train_data.filter(predicate) # 원하는label 만 정제해서 할당 
 	train_data = train_data.padded_batch(batch_size) # train_data가 filter(predicate) 에 의해 가변적인 크기를 가지고 있으므로 batch 대신 padded_batch 사용
 
 	validation_data = validation_data.filter(predicate)
