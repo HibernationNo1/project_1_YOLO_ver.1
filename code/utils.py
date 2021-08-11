@@ -113,7 +113,7 @@ def find_confidence_bounding_box(bounding_box_info_list, confidence_threshold):
 											key=itemgetter('iou'),
 											reverse=True)
 	confidence_bounding_box_list = list()
-
+	check = False
 
 	# confidence값이 confidence_threshold 이상인 Bbox는 모두 표현
 	for index in range(len(bounding_box_info_list_sorted)):
@@ -121,10 +121,11 @@ def find_confidence_bounding_box(bounding_box_info_list, confidence_threshold):
 			and bounding_box_info_list_sorted[index]['confidence_score'] > 0.6):
 			confidence_bounding_box_list.append(bounding_box_info_list_sorted[index])
 			# print(f"confidence_score : {bounding_box_info_list_sorted[index]['iou']:.2f}")
+			check = True
 		else : 
 			break
 
-	return confidence_bounding_box_list
+	return confidence_bounding_box_list, check
 
 def yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h, class_name, confidence_score, iou):
 	# the zero coordinate of image located

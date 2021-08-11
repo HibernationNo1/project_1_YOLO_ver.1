@@ -32,7 +32,7 @@ flags.DEFINE_float('init_learning_rate', default=0.0001, help='initial learning 
 flags.DEFINE_float('lr_decay_rate', default=0.5, help='decay rate for the learning rate')
 flags.DEFINE_integer('lr_decay_steps', default=200, help='number of steps after which the learning rate is decayed by decay rate') 
 # 2000 step : init_learning_rate = 0.00005, 4000 step : init_learning_rate = 0.000025
-flags.DEFINE_integer('num_visualize_image', default=20, help='number of visualize image for validation')
+flags.DEFINE_integer('num_visualize_image', default=10, help='number of visualize image for validation')
 # 중간중간 validation을 할 때마다 몇 개의 batch size로 visualization을 할지 결정하는 변수
 
 FLAGS = flags.FLAGS
@@ -40,25 +40,25 @@ FLAGS = flags.FLAGS
 
 # set cat label dictionary 
 label_to_class_dict = {
-	0: "cat", 1: "dog", 2: "horse"
+	0: "bike", 1: "human"
 }
 cat_class_to_label_dict = {v: k for k, v in label_to_class_dict.items()}
 
 # class_name_dict을 dataset.py에서 선언하는 이유 : train.py에서 선언하면 import 순환 이슈가 발생한다.
 from dataset import class_name_dict  
-# class_name_dict = class_name_dict = { 7: "cat", 11: "dog", 12: "horse"}
+# class_name_dict = class_name_dict = { 13: "bike", 14: "human" }
 class_name_to_label_dict = {v: k for k, v in class_name_dict.items()}
 
 
-dir_name = 'train6'
+dir_name = 'train2'
 
 # 이전에 했던 training을 다시 시작하거나 처음 진행할 때 False, 계속 이어서 할 땐 True 
 CONTINUE_LEARNING = False
 
 # set configuration valuey
 batch_size = 32 	# original paper : 64
-input_width = 224 	# original paper : 448
-input_height = 224 	# original paper : 448
+input_width = 448 	# original paper : 448
+input_height = 448 	# original paper : 448
 cell_size = 7
 num_classes = int(len(class_name_dict.keys())) 	# original paper : 20
 boxes_per_cell = 2
@@ -148,6 +148,153 @@ def save_tensorboard_log(train_summary_writer, optimizer, ckpt,
 		tf.summary.scalar('class_loss ', class_loss, step=int(ckpt.step)) 
 
 
+def draw_comparison_image(model,
+						  batch_validation_image,
+						  batch_validation_bbox,
+						  batch_validation_labels,
+						  validation_summary_writer,
+						  validation_image_index,
+						  ckpt):
+
+	random_idx = random.randint(0, batch_validation_image.shape[0] - 1)
+	image, labels, object_num = process_each_ground_truth(batch_validation_image[random_idx],
+														  batch_validation_bbox[random_idx],
+														  batch_validation_labels[random_idx],
+														  input_width, input_height)
+
+	ground_truth_bounding_box_info_list = list() 	# make ground truth bounding box list
+	for each_object_num in range(object_num):
+		labels = np.array(labels)
+		label = labels[each_object_num, :]
+		xcenter = label[0]
+		ycenter = label[1]
+		box_w = label[2]
+		box_h = label[3]
+
+		# [1., 0.] 일 때 index_one == 0, [0., 1.] 일 때 index_one == 1
+		index_class_name =  tf.argmax(label[4])
+		  	
+		# add ground-turth bounding box dict list
+		# 특정 class에만 ground truth bounding box information을 draw
+		for label_num in range(num_classes):
+			if int(index_class_name) == label_num:     
+				ground_truth_bounding_box_info_list.append(
+					yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h,
+					 str(label_to_class_dict[label_num]), 1.0, 1.0))
+
+
+	drawing_image = image
+	image = tf.expand_dims(image, axis=0)  # make dummy dimasion
+
+	predict = model(image)
+	# predict[0] == pred_class 		[1, cell_size, cell_size, num_class]
+	# predict[1] == pred_confidence [1, cell_size, cell_size, boxes_per_cell]
+	# predict[2] == pred_coordinate	[1, cell_size, cell_size, boxes_per_cell, 4]
+	# tf.shape(predict)[0] == batch_size
+			
+	# parse prediction(x, y, w, h)
+	predict_boxes = predict[2]
+	predict_boxes = tf.squeeze(predict_boxes, [0])
+		
+	# pred_P : 각 class에 대한 predicted probability
+	pred_P = tf.nn.softmax(predict[0])
+	pred_P = tf.squeeze(pred_P, [0])
+
+	# 각 cell마다 가장 높은 predicted class probability value의 index추출(predict한 class name)
+	class_prediction = pred_P  
+	class_prediction = tf.argmax(class_prediction, axis=2)
+
+	
+	iou_predict_truth_list = list() 	# 각 object의 iou를 담은 list.   			shape == [object_num, 7, 7, 2]
+	index_class_name_list = list() 		# 각 object의 label class name을 담은 list. shape == [object_num]
+	for each_object_num in range(object_num):
+		iou_predict_truth_list.append(iou(predict_boxes, labels[each_object_num, 0:4]))	
+		index_class_name_list.append(tf.argmax(labels[each_object_num, 4]))				
+		
+	# add prediction bounding box dict list
+	bounding_box_info_list = list()					# make prediction bounding box list
+	for i in range(cell_size):
+		for j in range(cell_size):
+			for k in range(boxes_per_cell):
+				pred_xcenter = predict_boxes[i][j][k][0]
+				pred_ycenter = predict_boxes[i][j][k][1]
+				pred_box_w = tf.minimum(input_width * 1.0, tf.maximum(0.0, predict_boxes[i][j][k][2]))
+				pred_box_h = tf.minimum(input_height * 1.0, tf.maximum(0.0, predict_boxes[i][j][k][3]))
+
+				for each_object_num in range(object_num):
+					# confedence_score = class_probability    
+					# class_probability는 여러 class중 실제 정답에 대해 예측한 확률값을 사용한다.
+					# computed_iou = intersection_of_union
+					pred_class_name = label_to_class_dict[index_class_name_list[each_object_num].numpy()] 
+					confidence_score = pred_P[i][j][index_class_name_list[each_object_num]] 
+					computed_iou = iou_predict_truth_list[each_object_num][i][j][k]
+	
+					
+					# for문이 끝나면 bounding_box_info_list에는 (object_num * cell_size * cell_size * box_per_cell)개의 bounding box의 information이 들어있다.
+					# 각 bounding box의 information은 (x, y, w, h, class_name, confidence_score)이다.
+					# add bounding box dict list
+					bounding_box_info_list.append(yolo_format_to_bounding_box_dict(pred_xcenter, 
+																				   pred_ycenter,
+																				   pred_box_w,
+																				   pred_box_h,
+																				   pred_class_name,
+																				   confidence_score,
+																				   computed_iou
+																				   ))
+
+	ground_truth_drawing_image = drawing_image.copy()
+	# draw ground-truth image
+	# window에 정답값의 bounding box와 그에 따른 information을 draw
+	for ground_truth_bounding_box_info in ground_truth_bounding_box_info_list:
+		draw_bounding_box_and_label_info(
+			ground_truth_drawing_image,
+			ground_truth_bounding_box_info['left'],
+			ground_truth_bounding_box_info['top'],
+			ground_truth_bounding_box_info['right'],
+			ground_truth_bounding_box_info['bottom'],
+			ground_truth_bounding_box_info['class_name'],
+			ground_truth_bounding_box_info['confidence_score'],
+			color_list[cat_class_to_label_dict[ground_truth_bounding_box_info['class_name']]])
+	 
+	# find one max confidence bounding box
+	# Non-maximum suppression을 사용하지 않고, 약식으로 진행 (confidence 상위 두 개의 bounding box 선택)
+	confidence_bounding_box_list, check_success = find_confidence_bounding_box(bounding_box_info_list, confidence_threshold)
+
+	# draw prediction (image 위에 bounding box 표현)
+	for confidence_bounding_box in confidence_bounding_box_list:
+		draw_bounding_box_and_label_info(
+			drawing_image,
+			confidence_bounding_box['left'],
+			confidence_bounding_box['top'],
+			confidence_bounding_box['right'],
+			confidence_bounding_box['bottom'],
+			confidence_bounding_box['class_name'],
+			confidence_bounding_box['confidence_score'],
+			color_list[cat_class_to_label_dict[confidence_bounding_box['class_name']]])
+ 	
+	# left : ground-truth, right : prediction
+	drawing_image = np.concatenate((ground_truth_drawing_image, drawing_image), axis=1)
+	# 두 이미지를 연결(왼쪽엔 ground_truth, 오른쪽엔 drawing_image)
+	drawing_image = drawing_image / 255
+	drawing_image = tf.expand_dims(drawing_image, axis = 0)
+		# save tensorboard log
+	if check_success: 
+		print("Detection success")
+	else: 
+		print("Detection failed")
+		
+	with validation_summary_writer.as_default():
+		tf.summary.image('validation_image_'+str(validation_image_index), drawing_image, step=int(ckpt.step))
+	
+	detection_num, class_num, detection_rate = performance_evaluation(confidence_bounding_box_list,
+																	  object_num,
+																	  labels,
+																	  class_name_to_label_dict,
+																	  validation_image_index,
+																	  num_classes)
+
+	return detection_num, class_num, detection_rate, object_num
+
 def save_validation_result(model,
 						   ckpt, 
 						   validation_summary_writer,
@@ -157,6 +304,12 @@ def save_validation_result(model,
 	total_validation_object_loss = 0.0
 	total_validation_noobject_loss = 0.0  
 	total_validation_class_loss = 0.0
+
+	detection_rate_sum = 0.0  		# average detection rate 계산을 위한 분자값
+	success_detection_num = 0.0		# perfect detection accuracy 계산을 위한 분자값
+	correct_answers_class_num = 0.0 # classicifiation accuracy 계산을 위한 분자값
+	total_object_num = 0.0 			# classicifiation accuracy 계산을 위한 분모값
+	# save validation test image
 
 	for iter, features in enumerate(validation_data):
 		batch_validation_image = features['image']
@@ -170,6 +323,18 @@ def save_validation_result(model,
 		batch_validation_bbox, batch_validation_labels = remove_irrelevant_label(batch_validation_bbox, 
 																				 batch_validation_labels,
 																				 class_name_dict)
+
+		detection_num, class_num, detection_rate, object_num = draw_comparison_image(model,
+						  															 batch_validation_image,
+																					 batch_validation_bbox,
+																					 batch_validation_labels,
+																					 validation_summary_writer,
+																					 iter,
+																					 ckpt)
+		detection_rate_sum +=detection_rate
+		success_detection_num += detection_num
+		correct_answers_class_num += class_num
+		total_object_num += object_num																		 
 	
     	# validation data와 model의 predictor간의 loss값 compute
 		(validation_total_loss,
@@ -185,164 +350,9 @@ def save_validation_result(model,
 		total_validation_object_loss = total_validation_object_loss + validation_object_loss
 		total_validation_noobject_loss = total_validation_noobject_loss + validation_noobject_loss
 		total_validation_class_loss = total_validation_class_loss + validation_class_loss
-	  
-	# save validation tensorboard log
-	with validation_summary_writer.as_default():
-
-		print(f'total_validation_total_loss : {total_validation_total_loss}')
-		print(f'total_validation_coord_loss : {total_validation_coord_loss}')
-		print(f'total_validation_object_loss : {total_validation_object_loss}')
-		print(f'total_validation_noobject_loss : {total_validation_noobject_loss}')
-		print(f'total_validation_class_loss : {total_validation_class_loss}')
-
-		tf.summary.scalar('total_validation_total_loss', total_validation_total_loss, step=int(ckpt.step))
-		tf.summary.scalar('total_validation_coord_loss', total_validation_coord_loss, step=int(ckpt.step))
-		tf.summary.scalar('total_validation_object_loss ', total_validation_object_loss, step=int(ckpt.step))
-		tf.summary.scalar('total_validation_noobject_loss ', total_validation_noobject_loss, step=int(ckpt.step))
-		tf.summary.scalar('total_validation_class_loss ', total_validation_class_loss, step=int(ckpt.step))
-	  
-	detection_rate_sum = 0.0  		# average detection rate 계산을 위한 분자값
-	success_detection_num = 0.0		# perfect detection accuracy 계산을 위한 분자값
-	correct_answers_class_num = 0.0 # classicifiation accuracy 계산을 위한 분자값
-	total_object_num = 0.0 			# classicifiation accuracy 계산을 위한 분모값
-	# save validation test image
-	for validation_image_index in range(num_visualize_image):
-		random_idx = random.randint(0, batch_validation_image.shape[0] - 1)
-		image, labels, object_num = process_each_ground_truth(batch_validation_image[random_idx],
-															  batch_validation_bbox[random_idx],
-															  batch_validation_labels[random_idx],
-															  input_width, input_height)
+		print(f'batch: {iter}, validation_total_loss : {validation_total_loss}')
 	
-		drawing_image = image
-		image = tf.expand_dims(image, axis=0)  # make dummy dimasion
 
-		predict = model(image)
-		# predict[0] == pred_class 		[1, cell_size, cell_size, num_class]
-		# predict[1] == pred_confidence [1, cell_size, cell_size, boxes_per_cell]
-		# predict[2] == pred_coordinate	[1, cell_size, cell_size, boxes_per_cell, 4]
-		# tf.shape(predict)[0] == batch_size
-			
-		# parse prediction(x, y, w, h)
-		predict_boxes = predict[2]
-		predict_boxes = tf.squeeze(predict_boxes, [0])
-		
-		# pred_P : 각 class에 대한 predicted probability
-		pred_P = tf.nn.softmax(predict[0])
-		pred_P = tf.squeeze(pred_P, [0])
-
-		# 각 cell마다 가장 높은 predicted class probability value의 index추출(predict한 class name)
-		class_prediction = pred_P  
-		class_prediction = tf.argmax(class_prediction, axis=2)
-		
-
-		bounding_box_info_list = list()					# make prediction bounding box list
-		ground_truth_bounding_box_info_list = list() 	# make ground truth bounding box list
-		for each_object_num in range(object_num):
-			labels = np.array(labels)
-			label = labels[each_object_num, :]
-			xcenter = label[0]
-			ycenter = label[1]
-			box_w = label[2]
-			box_h = label[3]
-			class_label = label[4]
-
-			class_label_index = tf.argmax(label[4])  # 지울거
-			
-			# [1., 0.] 일 때 index_one == 0, [0., 1.] 일 때 index_one == 1
-			index_one = tf.argmax(class_label, axis = 0)
-		  	
-			# add ground-turth bounding box dict list
-			# 특정 class에만 ground truth bounding box information을 draw
-			for label_num in range(num_classes):
-				if int(index_one) == label_num:     
-					ground_truth_bounding_box_info_list.append(
-						yolo_format_to_bounding_box_dict(xcenter, ycenter, box_w, box_h,
-						 str(label_to_class_dict[label_num]), 1.0, 1.0))
-					
-
-			# add prediction bounding box dict list
-			for i in range(cell_size):
-				for j in range(cell_size):
-					for k in range(boxes_per_cell):
-						pred_xcenter = predict_boxes[i][j][k][0]
-						pred_ycenter = predict_boxes[i][j][k][1]
-						pred_box_w = tf.minimum(input_width * 1.0, tf.maximum(0.0, predict_boxes[i][j][k][2]))
-						pred_box_h = tf.minimum(input_height * 1.0, tf.maximum(0.0, predict_boxes[i][j][k][3]))
-					
-						pred_class_name = label_to_class_dict[class_prediction[i][j].numpy()]   
-
-						iou_predict_truth = iou(predict_boxes, label[0:4])
-
-						# confedence_score = class_probability * intersection_of_union
-						# class_probability는 여러 class중 실제 정답에 대해 예측한 확률값을 사용한다.
-						confidence_score = pred_P[i][j][class_label_index] 
-						computed_iou = iou_predict_truth[i][j][k]
-						
-						# for문이 끝나면 bounding_box_info_list에는 (object_num * cell_size * cell_size * box_per_cell)개의 bounding box의 information이 들어있다.
-						# 각 bounding box의 information은 (x, y, w, h, class_name, confidence_score)이다.
-						# add bounding box dict list
-						bounding_box_info_list.append(yolo_format_to_bounding_box_dict(pred_xcenter, 
-																				   pred_ycenter,
-																				   pred_box_w,
-																				   pred_box_h,
-																				   pred_class_name,
-																				   confidence_score,
-																				   computed_iou
-																				   ))
-	
-		ground_truth_drawing_image = drawing_image.copy()
-		# draw ground-truth image
-		# window에 정답값의 bounding box와 그에 따른 information을 draw
-		for ground_truth_bounding_box_info in ground_truth_bounding_box_info_list:
-			draw_bounding_box_and_label_info(
-				ground_truth_drawing_image,
-				ground_truth_bounding_box_info['left'],
-				ground_truth_bounding_box_info['top'],
-				ground_truth_bounding_box_info['right'],
-				ground_truth_bounding_box_info['bottom'],
-				ground_truth_bounding_box_info['class_name'],
-				ground_truth_bounding_box_info['confidence_score'],
-				color_list[cat_class_to_label_dict[ground_truth_bounding_box_info['class_name']]])
-		 
-		# find one max confidence bounding box
-		# Non-maximum suppression을 사용하지 않고, 약식으로 진행 (confidence 상위 두 개의 bounding box 선택)
-		confidence_bounding_box_list = find_confidence_bounding_box(bounding_box_info_list, confidence_threshold)
-
-
-		# draw prediction (image 위에 bounding box 표현)
-		for confidence_bounding_box in confidence_bounding_box_list:
-			draw_bounding_box_and_label_info(
-				drawing_image,
-				confidence_bounding_box['left'],
-				confidence_bounding_box['top'],
-				confidence_bounding_box['right'],
-				confidence_bounding_box['bottom'],
-				confidence_bounding_box['class_name'],
-				confidence_bounding_box['confidence_score'],
-				color_list[cat_class_to_label_dict[confidence_bounding_box['class_name']]])
-	 	
-
-		# left : ground-truth, right : prediction
-		drawing_image = np.concatenate((ground_truth_drawing_image, drawing_image), axis=1)
-		# 두 이미지를 연결(왼쪽엔 ground_truth, 오른쪽엔 drawing_image)
-		drawing_image = drawing_image / 255
-		drawing_image = tf.expand_dims(drawing_image, axis = 0)
-
-		# save tensorboard log
-		with validation_summary_writer.as_default():
-			tf.summary.image('validation_image_'+str(validation_image_index), drawing_image, step=int(ckpt.step))
-		
-		detection_num, class_num, detection_rate = performance_evaluation(confidence_bounding_box_list,
-																		  object_num,
-																		  labels,
-																		  class_name_to_label_dict,
-																		  validation_image_index,
-																		  num_classes)
-		detection_rate_sum +=detection_rate
-		success_detection_num += detection_num
-		correct_answers_class_num += class_num
-		total_object_num += object_num
-		
 	print(f"num_visualize_image: {num_visualize_image}")
 	average_detection_rate = detection_rate_sum / num_visualize_image  				# 평균 object detection 비율	
 	perfect_detection_accuracy = success_detection_num / num_visualize_image	# 완벽한 object detection이 이루어진 비율
@@ -351,7 +361,27 @@ def save_validation_result(model,
 	print(f"perfect_detection_accuracy: {perfect_detection_accuracy:.2f}")
 	print(f"classification_accuracy: {classification_accuracy:.2f}")
 
-    
+	average_validation_total_loss = total_validation_total_loss/len(list(validation_data))
+	average_validation_coord_loss = total_validation_coord_loss/len(list(validation_data))
+	average_validation_object_loss = total_validation_object_loss/len(list(validation_data))
+	average_validation_noobject_loss = total_validation_noobject_loss/len(list(validation_data))
+	average_validation_class_loss = total_validation_class_loss/len(list(validation_data))
+	  
+	# save validation tensorboard log
+	with validation_summary_writer.as_default():
+
+		print(f'average_validation_total_loss : {average_validation_total_loss}')
+		print(f'average_validation_coord_loss : {average_validation_coord_loss}')
+		print(f'average_validation_object_loss : {average_validation_object_loss}')
+		print(f'average_validation_noobject_loss : {average_validation_noobject_loss}')
+		print(f'average_validation_class_loss : {average_validation_class_loss}')
+
+		tf.summary.scalar('average_validation_total_loss', average_validation_total_loss, step=int(ckpt.step))
+		tf.summary.scalar('average_validation_coord_loss', average_validation_coord_loss, step=int(ckpt.step))
+		tf.summary.scalar('average_validation_object_loss ', average_validation_object_loss, step=int(ckpt.step))
+		tf.summary.scalar('average_validation_noobject_loss ', average_validation_noobject_loss, step=int(ckpt.step))
+		tf.summary.scalar('average_validation_class_loss ', average_validation_class_loss, step=int(ckpt.step))
+	  
     
 def main(_): 
 	# set learning rate decay
@@ -381,7 +411,7 @@ def main(_):
 
 	for epoch in range(FLAGS.num_epochs):
 		num_batch = len(list(train_data))
-	
+
 
 		for iter, features in enumerate(train_data):
 			batch_image = features['image']
@@ -403,7 +433,13 @@ def main(_):
 					   batch_image, batch_bbox, batch_labels)
 
 			# print log
-			print(f"Epoch: {epoch+1}, Iter: {(iter+1)}/{num_batch}, Loss: {total_loss.numpy()}")
+			print(f"Epoch: {epoch+1}, Iter: {(iter+1)}/{num_batch}")
+			print(f"total_loss : {total_loss}")
+			print(f"coord_loss : {coord_loss}")
+			print(f"object_loss : {object_loss}")
+			print(f"noobject_loss : {noobject_loss}")
+			print(f"class_loss : {class_loss} \n")
+
 
 			# save tensorboard log
 			save_tensorboard_log(train_summary_writer, optimizer, ckpt,
@@ -415,7 +451,7 @@ def main(_):
 			ckpt.step.assign_add(1) # epoch나 train data의 개수와는 별개로, step 증가
 			
             # occasionally check validation data and save tensorboard log
-			if (int(ckpt.step) % FLAGS.validation_steps == 0) or (int(ckpt.step) == 1):
+			if (int(ckpt.step) % FLAGS.validation_steps == 0) :
 				save_validation_result(YOLOv1_model,
 									   ckpt, 
 									   validation_summary_writer,

@@ -5,7 +5,7 @@ import tensorflow_datasets as tfds
 
 # dict of classes to detect 
 class_name_dict = {
-	7: "cat", 11: "dog", 12: "horse"
+	13: "bike", 14: "human"
 }
 
 def predicate(x):  # x는 하나의 data.
