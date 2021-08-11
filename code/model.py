@@ -1,8 +1,7 @@
 import tensorflow as tf
 
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
-from tensorflow.keras.regularizers import L1, L2
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
 from tensorflow.keras.applications import InceptionV3
 
 # Implementation using tf.keras.applications (https://www.tensorflow.org/api_docs/python/tf/keras/applications)
@@ -15,21 +14,19 @@ class YOLOv1(Model):
 		# shape = (None, 5, 5, 2048)
 		base_model.trainable = True
 		x = base_model.output
-		x = Dropout(0.2)(x)
     
 		# Global Average Pooling
 		x = GlobalAveragePooling2D()(x)  # shape = (None, 2048)
 		x = Dense(cell_size * cell_size * (num_classes + (boxes_per_cell*5)), activation=None)(x)
-		x = Dropout(0.2)(x)
 		# flatten vector -> cell_size x cell_size x (num_classes + 5 * boxes_per_cell)
 		pred_class = x[:,  : cell_size * cell_size * num_classes]
-		pred_class = Dense(cell_size * cell_size * num_classes, activation=None, kernel_regularizer = L2(l = 0.01))(pred_class)
+		pred_class = Dense(cell_size * cell_size * num_classes, activation=None)(pred_class)
 
 		pred_confidence = x[:,  cell_size * cell_size * num_classes: (cell_size * cell_size * num_classes) + (cell_size * cell_size * boxes_per_cell)]
-		pred_confidence = Dense(cell_size * cell_size * boxes_per_cell, activation=None, kernel_regularizer = L2(l=0.04))(pred_confidence)
+		pred_confidence = Dense(cell_size * cell_size * boxes_per_cell, activation=None)(pred_confidence)
 
 		pred_coordinate = x[:, (cell_size * cell_size * num_classes) + (cell_size * cell_size * boxes_per_cell): ]
-		pred_coordinate = Dense(cell_size * cell_size * (boxes_per_cell*4), activation=None, kernel_regularizer = L1(l=0.10))(pred_coordinate)		
+		pred_coordinate = Dense(cell_size * cell_size * (boxes_per_cell*4), activation=None)(pred_coordinate)		
 
 
 		pred_class = tf.reshape(pred_class, 
