@@ -84,7 +84,7 @@ validation data로는 voc/2007_validation_data를 사용
 # load pascal voc2007/voc2012 dataset using tfds
 def load_pascal_voc_dataset(batch_size):  
     # set dataset for training
-    voc2007_test_split_data = tfds.load("voc/2007", split=tfds.Split.TEST, batch_size=1)
+	voc2007_test_split_data = tfds.load("voc/2007", split=tfds.Split.TEST, batch_size=1)
 	voc2012_train_split_data = tfds.load("voc/2012", split=tfds.Split.TRAIN, batch_size=1)
 	voc2012_validation_split_data = tfds.load("voc/2012", split=tfds.Split.VALIDATION, batch_size=1)
 
@@ -94,14 +94,13 @@ def load_pascal_voc_dataset(batch_size):
 	voc2007_validation_split_data = tfds.load("voc/2007", split=tfds.Split.VALIDATION, batch_size=1)
 	validation_data = voc2007_validation_split_data
     
-    train_data = train_data.filter(predicate) # 7 label 만 정제해서 할당 
-    train_data = train_data.padded_batch(batch_size) # train_data가 filter(predicate) 에 의해 가변적인 크기를 가지고 있으므로 batch 대신 padded_batch 사용
+	train_data = train_data.filter(predicate) # 원하는label 만 정제해서 할당 
+	train_data = train_data.padded_batch(batch_size) # train_data가 filter(predicate) 에 의해 가변적인 크기를 가지고 있으므로 batch 대신 padded_batch 사용
 
 	validation_data = validation_data.filter(predicate)
 	validation_data = validation_data.padded_batch(batch_size)
     
-    return train_data, validation_data
-
+	return train_data, validation_data
 ```
 
 
@@ -132,19 +131,23 @@ def load_pascal_voc_dataset_for_test(batch_size):
 
 ## predicate
 
-**load_pascal_voc_dataset**  에서 preprocessing을 진행할때 사용하기 위해 정의한 function이며, cat에 대한 data만 parsing하기 위해 allowed_labels에 7.0 의 value를 할당했다.
+**load_pascal_voc_dataset**  에서 preprocessing을 진행할때 사용하기 위해 정의한 function이며, target class 대한 data만 extraction하도록 구현했다.
 
--  [voc/2007](https://pjreddie.com/media/files/VOC2007_doc.pdf) 의 paper을 보면 'cat' 은 8번째 class이며, index = 7 임을 알 수 있다.
+
 
 ```python
-def predicate(x, allowed_labels=tf.constant([7.0])):
-    label = x['objects']['label']
-    isallowed = tf.equal(allowed_labels, tf.cast(label, tf.float32)) 	# label이 7인 element만 True
+def predicate(x):
+	label = x['objects']['label']
+	
+	# class_name_dict의 key에 해당하는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
+	reduced_sum = 0.0
 
-    reduced = tf.reduce_sum(tf.cast(isallowed, tf.float32)) 			# label이 7인 element의 개수
-	
-    return tf.greater(reduced, tf.constant(0.))  # label이 7인 element의 개수가 1개 이상일 때 True
-	
+	for label_num in class_name_dict.keys():
+		isallowed = tf.equal(tf.constant([float(label_num)]), tf.cast(label, tf.float32)) # label이 label_num인 element만 True
+		reduced = tf.reduce_sum(tf.cast(isallowed, tf.float32)) 	# label이 class_num인 element의 개수
+		reduced_sum += reduced
+
+	return tf.greater(reduced_sum, tf.constant(0.))  # label이 7인 element의 개수가 0보다 클 때(1개 이상일때) True
 ```
 
 
@@ -181,65 +184,79 @@ def process_each_ground_truth(original_image,
                               input_height
                               ):
     
-    # image에 zero padding 제거
-    image = original_image.numpy()
-    image = zero_trim_ndarray(image)
+	# image에 zero padding 제거
+	image = original_image.numpy()
+	image = zero_trim_ndarray(image)
 
-    # set original width height
-    original_w = image.shape[1] # original image의 width
-    original_h = image.shape[0] # original image의 height
+	# set original width height
+	original_w = image.shape[1] # original image의 width
+	original_h = image.shape[0] # original image의 height
 
-    # image의 x, y center coordinate를 계산하기 위해 rate compute
-    width_rate = input_width * 1.0 / original_w 
-    height_rate = input_height * 1.0 / original_h
-	
-    # YOLO input size로 image resizing
-    image = tf.image.resize(image, [input_height, input_width])
+	# image의 x, y center coordinate를 계산하기 위해 rate compute
+	width_rate = input_width * 1.0 / original_w 
+	height_rate = input_height * 1.0 / original_h
 
-    object_num = np.count_nonzero(bbox, axis=0)[0]
+	# YOLO input size로 image resizing
+	image = tf.image.resize(image, [input_height, input_width])
 
-    # labels initialize
-    labels = [[0, 0, 0, 0, 0]] * object_num
+	# object_num = np.count_nonzero(bbox, axis=0)[0]
+	object_num = np.count_nonzero(class_labels, axis=0)
+
+	# class_num = 2 일 때 tf.shape(class_labels) = (6,) , tf.shape(Bbox) = (6,4) 임을 고려
+	# [0 7 0 0 0 0] 을 [7 0 0 0 0 0] 처럼 index를 재정렬하는 function
+	class_labels = index_reorder(class_labels)
+
+	tmp = np.zeros_like(bbox)
+	for i in range(tf.shape(bbox)[1]):
+		tmp[:, i] = index_reorder(bbox[:, i])
+	bbox = tf.constant(tmp)
+
+	# labels initialize
+	labels = [[0, 0, 0, 0, 0]] * object_num # (x, y, w, h, class_number) * object_num 
     
-    for i in range(object_num):
-        xmin = bbox[i][1] * original_w
-        ymin = bbox[i][0] * original_h
-        xmax = bbox[i][3] * original_w
-        ymax = bbox[i][2] * original_h
+	for i in range(object_num):
+		# 0~1 사이로 표현되어있던 각 coordinate를 pixel단위의 coordinate로 표현
+		xmin = bbox[i][1] * original_w
+		ymin = bbox[i][0] * original_h
+		xmax = bbox[i][3] * original_w
+		ymax = bbox[i][2] * original_h
 
-        class_num = class_labels[i] # 실제 class labels
+		class_num = class_labels[i] # 실제 class labels
 
-		# set center coordinate 
-        xcenter = (xmin + xmax) * 1.0 / 2 * width_rate 
-        ycenter = (ymin + ymax) * 1.0 / 2 * height_rate
-
-        # bounding box의 width, height 
-        box_w = (xmax - xmin) * width_rate
-        box_h = (ymax - ymin) * height_rate
+		# ont_hot encoding
+		num_of_class = len(class_name_dict.keys()) 
+		index_list = [n for n in range(num_of_class)]
+		oh_class_num = (tf.one_hot(tf.cast((index_list), tf.int32), num_of_class, dtype=tf.float32))
+		for j in range(num_of_class): 
+			if int(class_num) == list(class_name_dict.keys())[j]:
+				class_num = oh_class_num[j]
+				break
 		
-        # YOLO format형태의 5가지 labels 완성
-        labels[i] = [xcenter, ycenter, box_w, box_h, class_num]
 
-    return [image.numpy(), labels, object_num]
+		# resizing 된 image에 맞는 center coordinate 
+		xcenter = (xmin + xmax) * 1.0 / 2 * width_rate 
+		ycenter = (ymin + ymax) * 1.0 / 2 * height_rate
+
+		# resizing 된 image에 맞는 bounding box의 width, height 
+		box_w = (xmax - xmin) * width_rate
+		box_h = (ymax - ymin) * height_rate
+
+		# YOLO format형태의 5가지 labels 완성
+		labels[i] = [xcenter, ycenter, box_w, box_h, class_num]
+
+	return [image.numpy(), labels, object_num]
 ```
 
 
 
 **detail**
 
-- line 18 :  image의 x, y center coordinate를 계산(line )하는 이유
+- line 58:  image의 x, y center coordinate를 계산(line )하는 이유
 
   PASCAL VOC 의 labels coordinate는 image의 꼭지점 좌표로 표현되어 있다. 하지만 YOLO model은 bounding box의 중앙 coordinate로 표현하기 때문에 이를 위해 x, y의 center coordinate를 계산해야 한다.
 
    (input으로 들어가는 image의 width, height == 448 이다.)
 
-- line 23  : `object_num` 은 전체 bounding box에서 object가 있는 box의 개수(즉, object 개수)이다. 
-
-  zero element가 있는 이유 : batch_size로 받아오기 때문에, 어떤 image는 object가 3개이고, 다른 image에서는 object가 1개일 때 [1 1 1], [1 0 0] 이런 식으로 dimension을 맞추기 위해 zero가 있게 된다. 이를 빼주기 위해 count_nonzero 을 하는 것이다.
-
-- line 26 : labels 의 shape == object 개수 * 5가지 element 
-
-  element == (x, y, w, h, class num) 
 
 
 
@@ -288,18 +305,29 @@ import numpy as np
 
 import tensorflow_datasets as tfds
 
-def predicate(x, allowed_labels=tf.constant([7.0])):
-    label = x['objects']['label']
-    isallowed = tf.equal(allowed_labels, tf.cast(label, tf.float32)) 	# label이 7인 element만 True
+# dict of classes to detect 
+class_name_dict = {
+	13: "bike", 14: "human"
+}
 
-    reduced = tf.reduce_sum(tf.cast(isallowed, tf.float32)) 			# label이 7인 element의 개수
+def predicate(x):
+	label = x['objects']['label']
 	
-    return tf.greater(reduced, tf.constant(0.))  # label이 7인 element의 개수가 1개 이상일 때 True
+	# class_name_dict의 key에 해당하는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
+	reduced_sum = 0.0
+
+	for label_num in class_name_dict.keys():
+		isallowed = tf.equal(tf.constant([float(label_num)]), tf.cast(label, tf.float32)) # label이 label_num인 element만 True
+		reduced = tf.reduce_sum(tf.cast(isallowed, tf.float32)) 	# label이 class_num인 element의 개수
+		reduced_sum += reduced
+
+	return tf.greater(reduced_sum, tf.constant(0.))  # label이 7인 element의 개수가 0보다 클 때(1개 이상일때) True
+
 
 # load pascal voc2007/voc2012 dataset using tfds
 def load_pascal_voc_dataset(batch_size):  
     # set dataset for training
-    voc2007_test_split_data = tfds.load("voc/2007", split=tfds.Split.TEST, batch_size=1)
+	voc2007_test_split_data = tfds.load("voc/2007", split=tfds.Split.TEST, batch_size=1)
 	voc2012_train_split_data = tfds.load("voc/2012", split=tfds.Split.TRAIN, batch_size=1)
 	voc2012_validation_split_data = tfds.load("voc/2012", split=tfds.Split.VALIDATION, batch_size=1)
 
@@ -309,13 +337,14 @@ def load_pascal_voc_dataset(batch_size):
 	voc2007_validation_split_data = tfds.load("voc/2007", split=tfds.Split.VALIDATION, batch_size=1)
 	validation_data = voc2007_validation_split_data
     
-    train_data = train_data.filter(predicate) # 7 label 만 정제해서 할당 
-    train_data = train_data.padded_batch(batch_size) # train_data가 filter(predicate) 에 의해 가변적인 크기를 가지고 있으므로 batch 대신 padded_batch 사용
+	train_data = train_data.filter(predicate) # 원하는label 만 정제해서 할당 
+	train_data = train_data.padded_batch(batch_size) # train_data가 filter(predicate) 에 의해 가변적인 크기를 가지고 있으므로 batch 대신 padded_batch 사용
 
 	validation_data = validation_data.filter(predicate)
 	validation_data = validation_data.padded_batch(batch_size)
     
-    return train_data, validation_data
+	return train_data, validation_data
+
 
 def load_pascal_voc_dataset_for_test(batch_size):
 	voc2007_train_split_data = tfds.load("voc/2007", split=tfds.Split.TRAIN, batch_size=1)
@@ -336,6 +365,15 @@ def bounds_per_dimension(ndarray):
 def zero_trim_ndarray(ndarray):
 	return ndarray[np.ix_(*bounds_per_dimension(ndarray))]
 
+def index_reorder(labels):
+	tmp = np.zeros_like(labels)
+	num = 0
+	for i in range(tf.shape(labels)[0]):
+		if not labels[i] == 0:
+			tmp[num] = labels[i]
+			num +=1
+	labels = tf.constant(tmp)
+	return labels
 
 def process_each_ground_truth(original_image, 
                               bbox,
@@ -344,45 +382,67 @@ def process_each_ground_truth(original_image,
                               input_height
                               ):
     
-    # image에 zero padding 제거
-    image = original_image.numpy()
-    image = zero_trim_ndarray(image)
+	# image에 zero padding 제거
+	image = original_image.numpy()
+	image = zero_trim_ndarray(image)
 
-    # set original width height
-    original_w = image.shape[1] # original image의 width
-    original_h = image.shape[0] # original image의 height
+	# set original width height
+	original_w = image.shape[1] # original image의 width
+	original_h = image.shape[0] # original image의 height
 
-    # image의 x, y center coordinate를 계산하기 위해 rate compute
-    width_rate = input_width * 1.0 / original_w 
-    height_rate = input_height * 1.0 / original_h
-	
-    # YOLO input size로 image resizing
-    image = tf.image.resize(image, [input_height, input_width])
+	# image의 x, y center coordinate를 계산하기 위해 rate compute
+	width_rate = input_width * 1.0 / original_w 
+	height_rate = input_height * 1.0 / original_h
 
-    object_num = np.count_nonzero(bbox, axis=0)[0]
+	# YOLO input size로 image resizing
+	image = tf.image.resize(image, [input_height, input_width])
 
-    # labels initialize
-    labels = [[0, 0, 0, 0, 0]] * object_num
+	# object_num = np.count_nonzero(bbox, axis=0)[0]
+	object_num = np.count_nonzero(class_labels, axis=0)
+
+	# class_num = 2 일 때 tf.shape(class_labels) = (6,) , tf.shape(Bbox) = (6,4) 임을 고려
+	# [0 7 0 0 0 0] 을 [7 0 0 0 0 0] 처럼 index를 재정렬하는 function
+	class_labels = index_reorder(class_labels)
+
+	tmp = np.zeros_like(bbox)
+	for i in range(tf.shape(bbox)[1]):
+		tmp[:, i] = index_reorder(bbox[:, i])
+	bbox = tf.constant(tmp)
+
+	# labels initialize
+	labels = [[0, 0, 0, 0, 0]] * object_num # (x, y, w, h, class_number) * object_num 
     
-    for i in range(object_num):
-        xmin = bbox[i][1] * original_w
-        ymin = bbox[i][0] * original_h
-        xmax = bbox[i][3] * original_w
-        ymax = bbox[i][2] * original_h
+	for i in range(object_num):
+		# 0~1 사이로 표현되어있던 각 coordinate를 pixel단위의 coordinate로 표현
+		xmin = bbox[i][1] * original_w
+		ymin = bbox[i][0] * original_h
+		xmax = bbox[i][3] * original_w
+		ymax = bbox[i][2] * original_h
 
-        class_num = class_labels[i] # 실제 class labels
+		class_num = class_labels[i] # 실제 class labels
 
-		# set center coordinate 
-        xcenter = (xmin + xmax) * 1.0 / 2 * width_rate 
-        ycenter = (ymin + ymax) * 1.0 / 2 * height_rate
-
-        # bounding box의 width, height 
-        box_w = (xmax - xmin) * width_rate
-        box_h = (ymax - ymin) * height_rate
+		# ont_hot encoding
+		num_of_class = len(class_name_dict.keys()) 
+		index_list = [n for n in range(num_of_class)]
+		oh_class_num = (tf.one_hot(tf.cast((index_list), tf.int32), num_of_class, dtype=tf.float32))
+		for j in range(num_of_class): 
+			if int(class_num) == list(class_name_dict.keys())[j]:
+				class_num = oh_class_num[j]
+				break
 		
-        # YOLO format형태의 5가지 labels 완성
-        labels[i] = [xcenter, ycenter, box_w, box_h, class_num]
 
-    return [image.numpy(), labels, object_num]
+		# resizing 된 image에 맞는 center coordinate 
+		xcenter = (xmin + xmax) * 1.0 / 2 * width_rate 
+		ycenter = (ymin + ymax) * 1.0 / 2 * height_rate
+
+		# resizing 된 image에 맞는 bounding box의 width, height 
+		box_w = (xmax - xmin) * width_rate
+		box_h = (ymax - ymin) * height_rate
+
+		# YOLO format형태의 5가지 labels 완성
+		labels[i] = [xcenter, ycenter, box_w, box_h, class_num]
+
+	return [image.numpy(), labels, object_num]
+
 ```
 
