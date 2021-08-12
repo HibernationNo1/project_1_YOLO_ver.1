@@ -90,46 +90,47 @@ Reference : https://arxiv.org/abs/1506.02640v1
 
 ![img](https://i0.wp.com/thebinarynotes.com/wp-content/uploads/2020/04/Yolo-Architecture.png?fit=678%2C285&ssl=1)
 
-| input image      | 448 × 448 × 3       |                                 |              |                           |
-| ---------------- | ------------------- | ------------------------------- | ------------ | ------------------------- |
-| Convolution      | kernel size = 7     | num of kernel = 64              | strides = 2  | padding = [kernel size/2] |
-| Maxpooling       | kernel size = 2     |                                 | strides = 2  |                           |
-| **feature map1** | **112 × 112 × 192** |                                 |              |                           |
-| Convolution      | kernel size = 3     | num of kernel = 192             | strides = 1  | padding = [kernel size/2] |
-| **feature map2** | **112 × 112 × 64**  |                                 |              |                           |
-|                  | **112 × 112 × 256** | **staking feature map 1, 2**    |              |                           |
-| Maxpooling       | kernel size = 2     |                                 | strides = 2  |                           |
-|                  | **56 × 56 × 256**   |                                 |              |                           |
-| Convolution      | kernel size = 1     | num of kernel = 128             | strides = 1  | padding = [kernel size/2] |
-| Convolution      | kernel size = 3     | num of kernel = 256             | strides = 1  | padding = [kernel size/2] |
-| Convolution      | kernel size = 1     | num of kernel = 256             | strides = 1  | padding = [kernel size/2] |
-| Convolution      | kernel size = 3     | num of kernel = 512             | strides = 1  | padding = [kernel size/2] |
-| Maxpooling       | kernel size = 2     |                                 | strides = 2  |                           |
-|                  | **28 × 28 × 512**   |                                 |              |                           |
-| Conv 1           | kernel size = 1     | num of kernel = 256             | strides = 1  | padding = [kernel size/2] |
-| Conv 2           | kernel size = 3     | num of kernel = 512             | strides = 1  | padding = [kernel size/2] |
-|                  |                     | **4 times iteration conv 1, 2** |              |                           |
-| Convolution      | kernel size = 1     | num of kernel = 512             | strides = 1  | padding = [kernel size/2] |
-| Convolution      | kernel size = 3     | num of kernel = 1024            | strides = 1  | padding = [kernel size/2] |
-| Maxpooling       | kernel size = 2     |                                 | strides = 2  |                           |
-|                  | **14 × 14 × 1024**  |                                 |              |                           |
-| Conv 3           | kernel size = 1     | num of kernel = 512             | strides = 1  | padding = [kernel size/2] |
-| Conv 4           | kernel size = 3     | num of kernel = 1024            | strides = 1  | padding = [kernel size/2] |
-|                  |                     | **2 times iteration conv 3, 4** |              |                           |
-| Convolution      | kernel size = 3     | num of kernel = 1024            | strides = 1  | padding = [kernel size/2] |
-| Convolution      | kernel size = 3     | num of kernel = 1024            | strides = 2  | padding = [kernel size/2] |
-|                  | **7 × 7 × 1024**    |                                 |              |                           |
-| Convolution      | kernel size = 3     | num of kernel = 1024            | strides = 1  | padding = [kernel size/2] |
-| Convolution      | kernel size = 3     | num of kernel = 1024            | strides = 1  | padding = [kernel size/2] |
-|                  | **7 × 7 × 1024**    |                                 |              |                           |
-| Conn Layer       |                     | Flatten                         |              |                           |
-|                  | **50,176 × 1**      |                                 |              |                           |
-| Conn Layer       |                     | Dense                           | units = 4096 |                           |
-|                  | **4096 × 1**        |                                 |              |                           |
-| Conn Layer       |                     | Dense                           | units = 1470 |                           |
-|                  | **1470 × 1**        |                                 |              |                           |
-|                  |                     | Reshape                         |              |                           |
-| **output**       | **7 × 7 × 30**      |                                 |              |                           |
+| input image       | 448 × 448 × 3       |                                 |              |                               |
+| ----------------- | ------------------- | ------------------------------- | ------------ | ----------------------------- |
+| back born network | Darknet             |                                 |              |                               |
+| Convolution       | kernel size = 7     | num of kernel = 64              | strides = 2  | padding = [kernel size/2]     |
+| Maxpooling        | kernel size = 2     |                                 | strides = 2  |                               |
+| **feature map1**  | **112 × 112 × 192** |                                 |              |                               |
+| Convolution       | kernel size = 3     | num of kernel = 192             | strides = 1  | padding = [kernel size]       |
+| **feature map2**  | **112 × 112 × 64**  |                                 |              |                               |
+|                   | **112 × 112 × 256** | **staking feature map 1, 2**    |              |                               |
+| Maxpooling        | kernel size = 2     |                                 | strides = 2  |                               |
+|                   | **56 × 56 × 256**   |                                 |              |                               |
+| Convolution       | kernel size = 1     | num of kernel = 128             | strides = 1  | padding = [kernel size]       |
+| Convolution       | kernel size = 3     | num of kernel = 256             | strides = 1  | padding = [kernel size/2]     |
+| Convolution       | kernel size = 1     | num of kernel = 256             | strides = 1  | padding = [kernel size]       |
+| Convolution       | kernel size = 3     | num of kernel = 512             | strides = 1  | padding = [kernel size/2]     |
+| Maxpooling        | kernel size = 2     |                                 | strides = 2  |                               |
+|                   | **28 × 28 × 512**   |                                 |              |                               |
+| Conv 1            | kernel size = 1     | num of kernel = 256             | strides = 1  | padding = [kernel size]       |
+| Conv 2            | kernel size = 3     | num of kernel = 512             | strides = 1  | padding = [kernel size/2]     |
+|                   |                     | **4 times iteration conv 1, 2** |              |                               |
+| Convolution       | kernel size = 1     | num of kernel = 512             | strides = 1  | padding = [kernel size]       |
+| Convolution       | kernel size = 3     | num of kernel = 1024            | strides = 1  | padding = [kernel size/2]     |
+| Maxpooling        | kernel size = 2     |                                 | strides = 2  |                               |
+|                   | **14 × 14 × 1024**  |                                 |              |                               |
+| Conv 3            | kernel size = 1     | num of kernel = 512             | strides = 1  | padding = [kernel size]       |
+| Conv 4            | kernel size = 3     | num of kernel = 1024            | strides = 1  | padding = [kernel size/2]     |
+|                   |                     | **2 times iteration conv 3, 4** |              |                               |
+| Convolution       | kernel size = 3     | num of kernel = 1024            | strides = 1  | padding = [kernel size/2]     |
+| Convolution       | kernel size = 3     | num of kernel = 1024            | strides = 2  | padding = [kernel size/2]     |
+|                   | **7 × 7 × 1024**    |                                 |              |                               |
+| Convolution       | kernel size = 3     | num of kernel = 1024            | strides = 1  | padding = [1 + kernel size/2] |
+| Convolution       | kernel size = 3     | num of kernel = 1024            | strides = 1  | padding = [1 + kernel size/2] |
+|                   | **7 × 7 × 1024**    |                                 |              |                               |
+| Conn Layer        |                     | Flatten                         |              |                               |
+|                   | **50,176 × 1**      |                                 |              |                               |
+| Conn Layer        |                     | Dense                           | units = 4096 |                               |
+|                   | **4096 × 1**        |                                 |              |                               |
+| Conn Layer        |                     | Dense                           | units = 1470 |                               |
+|                   | **1470 × 1**        |                                 |              |                               |
+|                   |                     | Reshape                         |              |                               |
+| **output**        | **7 × 7 × 30**      |                                 |              |                               |
 
 
 
@@ -154,7 +155,6 @@ Reference : https://arxiv.org/abs/1506.02640v1
    \end{matrix}\right.
    $$
    
-
 6. loss function
 
    sum-squared error 를 사용. 간단한 함수이기에 채택했지만 객체 검출에는 알맞지 않음
@@ -260,3 +260,4 @@ Reference : https://arxiv.org/abs/1506.02640v1
 1. PASCAL VOC 2007, 2012 data set으로 135번의 epochs동안 학습을 진행했고, batch size는 64, momentum은 0.9, decay는 0.0005로 결정했다.
 
    learning rate는 처음 75번의 epoch에는 0.001, 그 다음 30번의 epoch에는 0.0001, 다음 30 번의 epoch에는 0.00001로 결정
+

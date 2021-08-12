@@ -713,8 +713,8 @@ CONTINUE_LEARNING = False
 
 # set configuration valuey
 batch_size = 32 	# original paper : 64
-input_width = 224 	# original paper : 448
-input_height = 224 	# original paper : 448
+input_width = 448 	# original paper : 448
+input_height = 448 	# original paper : 448
 cell_size = 7
 num_classes = int(len(class_name_dict.keys())) 	# original paper : 20
 boxes_per_cell = 2
@@ -980,13 +980,14 @@ def save_validation_result(model,
 																				 batch_validation_labels,
 																				 class_name_dict)
 
-		detection_num, class_num, detection_rate, object_num = draw_comparison_image(model,
-						  															 batch_validation_image,
-																					 batch_validation_bbox,
-																					 batch_validation_labels,
-																					 validation_summary_writer,
-																					 iter,
-																					 ckpt)
+		if iter < num_visualize_image : 
+			detection_num, class_num, detection_rate, object_num = draw_comparison_image(model,
+						  																 batch_validation_image,
+																						 batch_validation_bbox,
+																						 batch_validation_labels,
+																						 validation_summary_writer,
+																						 iter,
+																						 ckpt)
 		detection_rate_sum +=detection_rate
 		success_detection_num += detection_num
 		correct_answers_class_num += class_num
@@ -1107,7 +1108,7 @@ def main(_):
 			ckpt.step.assign_add(1) # epoch나 train data의 개수와는 별개로, step 증가
 			
             # occasionally check validation data and save tensorboard log
-			if (int(ckpt.step) % FLAGS.validation_steps == 0) or (int(ckpt.step) == 1):
+			if (int(ckpt.step) % FLAGS.validation_steps == 0) :
 				save_validation_result(YOLOv1_model,
 									   ckpt, 
 									   validation_summary_writer,
@@ -1117,6 +1118,5 @@ def main(_):
 
 if __name__ == '__main__':  
 	app.run(main) # main함수 실행
-
 ```
 
