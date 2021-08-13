@@ -34,7 +34,7 @@ This file contain some utilities function for model training.
 - [remove_irrelevant_label](#remove_irrelevant_label)
 - [x_y_center_sort](#x_y_center_sort)
 - [performance_evaluation](#performance_evaluation)
-- [Full code](#"Full code")
+- [Full code]("#Full code")
 
 
 

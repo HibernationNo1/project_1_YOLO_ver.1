@@ -2,11 +2,11 @@
 
 
 
-### **todo list**
+### **to do list**
 
-- [modify one_hot encoding](#'add one hot encoding')
+- [modify one_hot encoding]("#add one hot encoding")
 
-- [modify confidence loss](#'confidence loss')
+- [modify confidence loss]("#confidence loss")
 
   기존 code의 confidence loss를 구성하고 있는 obejct loss와 noobejct loss는 MSE 방식으로 loss를 계산하기 때문에 label값 `C`는 label Bbox와 predicted value간의 interception union을 사용했다.
   
@@ -16,7 +16,7 @@
   
   그래서 더욱 정확한 예측을 위해 `tf.nn.sigmoid_cross_entropy_with_logits()`를 적용했으며, 이를 위해서 label값을 구성하는 방법을 수정했다.
   
-- [modify class loss](#'class loss ')
+- [modify class loss]("#class loss")
 
   class loss는 예측한 특정 class에 대한 probability를 표현하기 때문에 사용되는 loss functiond은 MSE가 아닌 CategoricalCrossentropy가 적절하다고 판단했다.
 

@@ -72,10 +72,10 @@ j : j 번째 detector (0부터 [Bboxs per cell] 까지)
 
 **contents**
 
-- [coordinate loss](#'coordinate loss')
-- [confidence loss](#'confidence loss')
-- [class loss](#'class loss')
-- [Total loss](#'Total loss')
+- [coordinate loss]("#coordinate loss")
+- [confidence loss]("#confidence loss")
+- [class loss]("#class loss")
+- [Total loss]("#Total loss")
 - [code](#code)
 
 
@@ -199,7 +199,7 @@ class loss는 multi class에 대한 확률 예측이기 때문에 CCE를 통해 
 
 
 $$
-\hat{C_i} = Softmax(C_i) = \frac{e^{(C_i)}}{\sum_{j=1}^{K}e^{(C_j)}}\\
+\hat{C_i} = Softmax(C_i) = \frac{e^{(C_i)}}{\sum_{j=1}^{K}e^{(C_j)}}\\
 $$
 
 $$

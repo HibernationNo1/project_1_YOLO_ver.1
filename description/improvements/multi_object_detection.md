@@ -2,13 +2,13 @@
 
 
 
-### todo list
+### to do list
 
-- [extract multi class](#'extract multi class ')
+- [extract multi class]("#extract multi class")
 
   dataset에서 1개의 class만 extraction하는 것에서 여러개의 class를 extraction하는 것으로 변경
 
-- [detect multi object](#'detect multi object')
+- [detect multi object]("#detect multi object")
 
   label과 predicted image통해 진행되는 test 결과를 확인하는 과정에서 1개의 object만을 표현하는 것을 다수의 object를 표현하도록 변경 
 
