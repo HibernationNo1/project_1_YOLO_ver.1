@@ -112,10 +112,12 @@
     특정 조건을 만족하는 Bbox가 존재하는 경우에 대한 비율을 계산합니다. 
 
     Performance Evaluation Index 중 **Recall**의 방법을 따랐습니다.
+  
+    
     $$
     Detection\ Rate = \frac{Num\ Detected\ Object}{Num\ Label\ Object} * 100%
     $$
-
+  
     $$
     Average\ Detection\ Rate = \frac{Sum \ Detection\ Rate }{Num\ Test\ Image}
     $$
@@ -123,13 +125,15 @@
     
 
   - **perfect_detection_accuracy**
-
+  
     object detection이 이루어진 result중 완벽한 object detection이 이루어진 비율입니다.
+  
+    
     $$
     Perfect\ Detection\ Accuracy = \frac{Num\ Perfect\ Detection }{Num\ Test\ Image}
     $$
-    
-
+  
+  
     > label object가 1개일 때 2개 이상을 감지하면 over detection
     >
     > label object가 2개일 때 1개만을 감지하면 low detection
@@ -139,17 +143,19 @@
     위의 detection_rate == 100% 인 경우 perfect detection인 것으로 결정했습니다.
 
   - **classification_accuracy**
-
+  
     result에 대한 대한 정확한 classification이 이루어진 비율입니다.
-
+  
     perfect detection이라는 전제 조건에서 성공적인 classification가 이루어졌는지 확인합니다. (즉, perfect detection인 경우가 아니면 success classification 확인 과정을 수행하지 않았습니다.)
+    
+    
     $$
     Classification Accuracy = \frac{Num\ Correct\ Answers\ Class }{Num\ Test\ Image}
     $$
     
-
+  
     *success classification 확인 과정*
-
+    
     1. label과 prediction의 object list를 x좌표 기준으로 올림차순 정렬을 수행한다.
     2. x좌표가 낮은 object부터 x좌표가 높은 object 순으로 label과 prediction의 class name이 동일한지 확인한다.
     3. 2번의 조건이 만족하면, label과 prediction의 object list를 y좌표 기준으로 올림차순 정렬을 수행한다.
