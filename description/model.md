@@ -321,19 +321,45 @@ inception.V3을 포함한 model은 150step까지, inception.V3을 포함하지 �
 
 - **class loss**
   - inception.V3
+  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/calss_loss.png?raw=true)
+  
   - without inception.V3
+  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/noap_calss_loss.png?raw=true)
 - **coordinate loss**
   - inception.V3
+  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/coord_loss.png?raw=true)
+  
   - without inception.V3
+  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/noap_coord_loss.png?raw=true)
 - **object loss**
   - inception.V3
+  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/object_loss.png?raw=true)
+  
   - without inception.V3
+  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/noap_object_loss.png?raw=true)
 - **noobject loss**
   - inception.V3
+  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/noobject_loss.png?raw=true)
+  
   - without inception.V3
+  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/noap_noobject_loss.png?raw=true)
 - **total loss**
+  
   - inception.V3
+  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/total_loss.png?raw=true)
+  
   - without inception.V3
+  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/noap_total_loss.png?raw=true)
 
 
 
