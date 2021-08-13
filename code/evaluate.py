@@ -45,9 +45,6 @@ confidence_threshold = 0.5
 color_list = generate_color(num_classes)
 
 test_data = load_pascal_voc_dataset_for_test(batch_size)
-#from dataset import load_pascal_voc_dataset
-#_, test_data = load_pascal_voc_dataset(batch_size)
-
 
 def main(_):
 	# check if checkpoint path exists

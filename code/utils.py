@@ -8,7 +8,7 @@ import colorsys
 from operator import itemgetter
 
 import os
-from model import YOLOv1
+from tmp import YOLOv1
 
 
 def dir_setting(dir_name, 

@@ -361,9 +361,9 @@ def draw_comparison_image(model,
 					# class_probability는 여러 class중 실제 정답에 대해 예측한 확률값을 사용한다.
 					# computed_iou = intersection_of_union
 					pred_class_name = label_to_class_dict[index_class_name_list[each_object_num].numpy()] 
-					confidence_score = pred_P[i][j][index_class_name_list[each_object_num]] 
+					class_probability = pred_P[i][j][index_class_name_list[each_object_num]]  
 					computed_iou = iou_predict_truth_list[each_object_num][i][j][k]
-	
+					confidence_score = class_probability * computed_iou
 					
 					# for문이 끝나면 bounding_box_info_list에는 (object_num * cell_size * cell_size * box_per_cell)개의 bounding box의 information이 들어있다.
 					# 각 bounding box의 information은 (x, y, w, h, class_name, confidence_score)이다.
@@ -483,33 +483,34 @@ def save_validation_result(model,
 																				 batch_validation_labels,
 																				 class_name_dict)
 
-		detection_num, class_num, detection_rate, object_num = draw_comparison_image(model,
-						  															 batch_validation_image,
-																					 batch_validation_bbox,
-																					 batch_validation_labels,
-																					 validation_summary_writer,
-																					 iter,
-																					 ckpt)
-		detection_rate_sum +=detection_rate
-		success_detection_num += detection_num
-		correct_answers_class_num += class_num
-		total_object_num += object_num																		 
+		if iter < num_visualize_image : 
+			detection_num, class_num, detection_rate, object_num = draw_comparison_image(model,
+						  																 batch_validation_image,
+																						 batch_validation_bbox,
+																						 batch_validation_labels,
+																						 validation_summary_writer,
+																						 iter,
+																						 ckpt)
+			detection_rate_sum +=detection_rate
+			success_detection_num += detection_num
+			correct_answers_class_num += class_num
+			total_object_num += object_num																		 
 	
-    	# validation data와 model의 predictor간의 loss값 compute
-		(validation_total_loss,
-		 validation_coord_loss,
-		 validation_object_loss,
-		 validation_noobject_loss,
-		 validation_class_loss) = calculate_loss(model,
-												 batch_validation_image,
-												 batch_validation_bbox,
-												 batch_validation_labels)
-		total_validation_total_loss = total_validation_total_loss + validation_total_loss
-		total_validation_coord_loss = total_validation_coord_loss + validation_coord_loss
-		total_validation_object_loss = total_validation_object_loss + validation_object_loss
-		total_validation_noobject_loss = total_validation_noobject_loss + validation_noobject_loss
-		total_validation_class_loss = total_validation_class_loss + validation_class_loss
-		print(f'batch: {iter}, validation_total_loss : {validation_total_loss}')
+    		# validation data와 model의 predictor간의 loss값 compute
+			(validation_total_loss,
+			 validation_coord_loss,
+			 validation_object_loss,
+			 validation_noobject_loss,
+			 validation_class_loss) = calculate_loss(model,
+													 batch_validation_image,
+													 batch_validation_bbox,
+													 batch_validation_labels)
+			total_validation_total_loss = total_validation_total_loss + validation_total_loss
+			total_validation_coord_loss = total_validation_coord_loss + validation_coord_loss
+			total_validation_object_loss = total_validation_object_loss + validation_object_loss
+			total_validation_noobject_loss = total_validation_noobject_loss + validation_noobject_loss
+			total_validation_class_loss = total_validation_class_loss + validation_class_loss
+			print(f'batch: {iter}, validation_total_loss : {validation_total_loss}')
 	
 
 	print(f"num_visualize_image: {num_visualize_image}")
@@ -520,11 +521,11 @@ def save_validation_result(model,
 	print(f"perfect_detection_accuracy: {perfect_detection_accuracy:.2f}")
 	print(f"classification_accuracy: {classification_accuracy:.2f}")
 
-	average_validation_total_loss = total_validation_total_loss/len(list(validation_data))
-	average_validation_coord_loss = total_validation_coord_loss/len(list(validation_data))
-	average_validation_object_loss = total_validation_object_loss/len(list(validation_data))
-	average_validation_noobject_loss = total_validation_noobject_loss/len(list(validation_data))
-	average_validation_class_loss = total_validation_class_loss/len(list(validation_data))
+	average_validation_total_loss = total_validation_total_loss/num_visualize_image
+	average_validation_coord_loss = total_validation_coord_loss/num_visualize_image
+	average_validation_object_loss = total_validation_object_loss/num_visualize_image
+	average_validation_noobject_loss = total_validation_noobject_loss/num_visualize_image
+	average_validation_class_loss = total_validation_class_loss/num_visualize_image
 	  
 	# save validation tensorboard log
 	with validation_summary_writer.as_default():
@@ -540,7 +541,6 @@ def save_validation_result(model,
 		tf.summary.scalar('average_validation_object_loss ', average_validation_object_loss, step=int(ckpt.step))
 		tf.summary.scalar('average_validation_noobject_loss ', average_validation_noobject_loss, step=int(ckpt.step))
 		tf.summary.scalar('average_validation_class_loss ', average_validation_class_loss, step=int(ckpt.step))
-	  
 ```
 
 
@@ -685,9 +685,8 @@ flags.DEFINE_string('tensorboard_log_path', default='tensorboard_log', help='pat
 flags.DEFINE_integer('validation_steps', default=100, help='period at which test prediction result and save image')  # 몇 번의 step마다 validation data로 test를 할지 결정
 flags.DEFINE_integer('num_epochs', default=50, help='training epochs') # original paper : 135 epoch
 flags.DEFINE_float('init_learning_rate', default=0.0001, help='initial learning rate') # original paper : 0.001 (1epoch) -> 0.01 (75epoch) -> 0.001 (30epoch) -> 0.0001 (30epoch)
-flags.DEFINE_float('lr_decay_rate', default=0.5, help='decay rate for the learning rate')
-flags.DEFINE_integer('lr_decay_steps', default=200, help='number of steps after which the learning rate is decayed by decay rate') 
-# 2000 step : init_learning_rate = 0.00005, 4000 step : init_learning_rate = 0.000025
+flags.DEFINE_float('lr_decay_rate', default=0.7, help='decay rate for the learning rate')
+flags.DEFINE_integer('lr_decay_steps', default=100, help='number of steps after which the learning rate is decayed by decay rate') 
 flags.DEFINE_integer('num_visualize_image', default=10, help='number of visualize image for validation')
 # 중간중간 validation을 할 때마다 몇 개의 batch size로 visualization을 할지 결정하는 변수
 
@@ -696,7 +695,7 @@ FLAGS = flags.FLAGS
 
 # set cat label dictionary 
 label_to_class_dict = {
-	0: "bike", 1: "human"
+	0: "cat", 1: "dog", 2: "horse"
 }
 cat_class_to_label_dict = {v: k for k, v in label_to_class_dict.items()}
 
@@ -706,7 +705,7 @@ from dataset import class_name_dict
 class_name_to_label_dict = {v: k for k, v in class_name_dict.items()}
 
 
-dir_name = 'train2'
+dir_name = 'train3'
 
 # 이전에 했던 training을 다시 시작하거나 처음 진행할 때 False, 계속 이어서 할 땐 True 
 CONTINUE_LEARNING = False
@@ -882,9 +881,9 @@ def draw_comparison_image(model,
 					# class_probability는 여러 class중 실제 정답에 대해 예측한 확률값을 사용한다.
 					# computed_iou = intersection_of_union
 					pred_class_name = label_to_class_dict[index_class_name_list[each_object_num].numpy()] 
-					confidence_score = pred_P[i][j][index_class_name_list[each_object_num]] 
+					class_probability = pred_P[i][j][index_class_name_list[each_object_num]]  
 					computed_iou = iou_predict_truth_list[each_object_num][i][j][k]
-	
+					confidence_score = class_probability * computed_iou
 					
 					# for문이 끝나면 bounding_box_info_list에는 (object_num * cell_size * cell_size * box_per_cell)개의 bounding box의 information이 들어있다.
 					# 각 bounding box의 information은 (x, y, w, h, class_name, confidence_score)이다.
@@ -988,26 +987,26 @@ def save_validation_result(model,
 																						 validation_summary_writer,
 																						 iter,
 																						 ckpt)
-		detection_rate_sum +=detection_rate
-		success_detection_num += detection_num
-		correct_answers_class_num += class_num
-		total_object_num += object_num																		 
+			detection_rate_sum +=detection_rate
+			success_detection_num += detection_num
+			correct_answers_class_num += class_num
+			total_object_num += object_num																		 
 	
-    	# validation data와 model의 predictor간의 loss값 compute
-		(validation_total_loss,
-		 validation_coord_loss,
-		 validation_object_loss,
-		 validation_noobject_loss,
-		 validation_class_loss) = calculate_loss(model,
-												 batch_validation_image,
-												 batch_validation_bbox,
-												 batch_validation_labels)
-		total_validation_total_loss = total_validation_total_loss + validation_total_loss
-		total_validation_coord_loss = total_validation_coord_loss + validation_coord_loss
-		total_validation_object_loss = total_validation_object_loss + validation_object_loss
-		total_validation_noobject_loss = total_validation_noobject_loss + validation_noobject_loss
-		total_validation_class_loss = total_validation_class_loss + validation_class_loss
-		print(f'batch: {iter}, validation_total_loss : {validation_total_loss}')
+    		# validation data와 model의 predictor간의 loss값 compute
+			(validation_total_loss,
+			 validation_coord_loss,
+			 validation_object_loss,
+			 validation_noobject_loss,
+			 validation_class_loss) = calculate_loss(model,
+													 batch_validation_image,
+													 batch_validation_bbox,
+													 batch_validation_labels)
+			total_validation_total_loss = total_validation_total_loss + validation_total_loss
+			total_validation_coord_loss = total_validation_coord_loss + validation_coord_loss
+			total_validation_object_loss = total_validation_object_loss + validation_object_loss
+			total_validation_noobject_loss = total_validation_noobject_loss + validation_noobject_loss
+			total_validation_class_loss = total_validation_class_loss + validation_class_loss
+			print(f'batch: {iter}, validation_total_loss : {validation_total_loss}')
 	
 
 	print(f"num_visualize_image: {num_visualize_image}")
@@ -1018,11 +1017,11 @@ def save_validation_result(model,
 	print(f"perfect_detection_accuracy: {perfect_detection_accuracy:.2f}")
 	print(f"classification_accuracy: {classification_accuracy:.2f}")
 
-	average_validation_total_loss = total_validation_total_loss/len(list(validation_data))
-	average_validation_coord_loss = total_validation_coord_loss/len(list(validation_data))
-	average_validation_object_loss = total_validation_object_loss/len(list(validation_data))
-	average_validation_noobject_loss = total_validation_noobject_loss/len(list(validation_data))
-	average_validation_class_loss = total_validation_class_loss/len(list(validation_data))
+	average_validation_total_loss = total_validation_total_loss/num_visualize_image
+	average_validation_coord_loss = total_validation_coord_loss/num_visualize_image
+	average_validation_object_loss = total_validation_object_loss/num_visualize_image
+	average_validation_noobject_loss = total_validation_noobject_loss/num_visualize_image
+	average_validation_class_loss = total_validation_class_loss/num_visualize_image
 	  
 	# save validation tensorboard log
 	with validation_summary_writer.as_default():
@@ -1108,7 +1107,7 @@ def main(_):
 			ckpt.step.assign_add(1) # epoch나 train data의 개수와는 별개로, step 증가
 			
             # occasionally check validation data and save tensorboard log
-			if (int(ckpt.step) % FLAGS.validation_steps == 0) :
+			if (int(ckpt.step) % FLAGS.validation_steps == 0) or (int(ckpt.step) == 1) :
 				save_validation_result(YOLOv1_model,
 									   ckpt, 
 									   validation_summary_writer,
@@ -1118,5 +1117,6 @@ def main(_):
 
 if __name__ == '__main__':  
 	app.run(main) # main함수 실행
+
 ```
 

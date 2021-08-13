@@ -275,6 +275,7 @@ def find_confidence_bounding_box(bounding_box_info_list, confidence_threshold):
 											key=itemgetter('confidence_score'),
 											reverse=True)
 	confidence_bounding_box_list = list()
+	check = False
 
 	# confidence값이 confidence_threshold 이상인 Bbox는 모두 표현
 	for index in range(len(bounding_box_info_list_sorted)):
@@ -283,7 +284,7 @@ def find_confidence_bounding_box(bounding_box_info_list, confidence_threshold):
 		else : 
 			break
 
-	return confidence_bounding_box_list
+	return confidence_bounding_box_list, check
 ```
 
 > sorted : key를 기준으로 가장 높은 값을 가진 것을 차례로 정렬 후 반환

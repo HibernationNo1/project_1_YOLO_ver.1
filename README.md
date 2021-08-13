@@ -8,17 +8,13 @@ paper Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%E
 
 **강의 교육 내용**
 
-논문을 통해 YOLO의 개념과 loss function을 파악 후 구현.
-
-model training 및 evaluation을 진행합니다.
+해당 강의는 YOLO V.1의 논문을 읽고 구현하는 강의입니다. 구현하는 code는 20개의 class 중 1개만을 학습하고 test하는 과정으로 이루어져 있으며, 제공되는 code는 가장 기초적인 부분만 구현되어 있습니다.
 
 
 
 **project를 진행한 목적**
 
-해당 강의는 YOLO V.1의 논문을 읽고 구현하는 강의입니다. 구현하는 code는 20개의 class 중 1개만을 학습하고 test하는 과정으로 이루어져 있으며, 제공되는 code는 가장 기초적인 부분만 구현되어 있습니다. 
-
-저는 해당 code에서 개선해야 할 부분을 찾고 직접 연구하고 개선하는 경험을 얻기 위해 프로젝트를 진행했습니다.
+해당 강의에서 제공되는 code는 YOLO model의 initial version이며, single class를 학습하고 여러 계산 과정에 오류가 있는 등 날것 그대로의 형태를 가지고 있습니다. 저는 이러한 code를 직접 개선하고 발전시켜나가며 스스로의 역량을 키우고자 프로젝트를 진행하게 되었습니다. 개선 사항에 대해서는 [improvement list](#'improvement list') 에 기록하였습니다.
 
 
 
@@ -37,27 +33,35 @@ model training 및 evaluation을 진행합니다.
 
 
 
+
+
 ---
+
+
 
 
 
 ## improvement list
 
--  **CONTINUE_LEARNING**
+- **CONTINUE_LEARNING**
 
   training이 unintentionally하게 중단되었거나, data의 update로 인해 model을 새롭게 training해야 하는 경우를 위해 continue 여부에 대한 flag를 추가했습니다.
 
-  해당 flag의 True, False 여부에 따라 directory생성, 삭제, load saved model 등의 동작이 이루어집니다.
+  해당 flag의 True, False값에 따라 directory생성, 삭제, load saved model 등의 동작이 이루어집니다.
 
   `CONTINUE_LEARNING = False` : 이전에 했던 training을 다시 시작하는 경우
 
   `CONTINUE_LEARNING = True `: 이전에 했던 training의 step에 이어서 진행 할 경우
+
+  [자세한 설명]()
 
 - **multi_object_detection**
 
   기존의 code는 dataset에서 1개의 class만 extraction하고, test result로 1개의 Bbox만을 표현했습니다.
 
   저는 multi class에 대한 학습과 test를 위해 dataset에서 여러개의 class를 extraction하는 것으로 변경하였고, test result 또한 특정 조건(confidence score)을 만족한 여러개의 Bbox를 표현하도록 했습니다.
+
+  [자세한 설명]()
 
 - **confidence_score**
 
@@ -67,6 +71,8 @@ model training 및 evaluation을 진행합니다.
 
   또한 multi object detection을 위해 각 object마다 [cell_size, cell_size, box_per_cell] shape의 iou를 계산하도록 했습니다.
 
+  [자세한 설명]()
+
 - **remove_irrelevant_label**
 
   기존의 code는 dataset에서 data를 추려낼 때 target class object가 하나라도 포함 된 data는 모두 추려냅니다. 이 과정에서 target class가 아닌 class의 object도 포함된 data가 있는데, 이러한 object는 학습 목표과 관련이 없는 label이기 때문에 loss를 높히는 원인이 됨을 확인했습니다.
@@ -74,6 +80,8 @@ model training 및 evaluation을 진행합니다.
   > **ex)** cat, dog만을 학습시키고자 할 때 image에 cat, human, cow 등 target이 아닌 label이 포함되어 있으면 이에 대한 loss가 계산되어 학습에 방해가 된다.
 
   이를 해결하기 위해 label에 포함된 class중 target class외의 모든 class에 대한 value를 0으로 만드는 function을 정의했습니다.
+
+  [자세한 설명]()
 
 - **improve_total_loss**  
 
@@ -90,6 +98,8 @@ model training 및 evaluation을 진행합니다.
   - 기존 code는 class loss의 label value에 적용된 one-hot encoding에서 label에 대한 number가 제대로 된 전달이 이루어지지 않아 0.0만을 반환하는 문제점을 확인했습니다. 이는 학습이 진행될수록 class loss는 0에 가까운 값으로 수렴하기 때문에 각 label값에 알맞게 one-hot encoding이 적용된 값이 할당될 수 있도록 function을 추가했습니다.
 
     또한 class loss는 예측한 특정 class에 대한 probability를 표현하기 때문에 사용되는 loss functiond은 MSE가 아닌 `tf.nn.softmax_cross_entropy_with_logits`으로 적용했습니다.
+
+  [자세한 설명]()
 
 - **performance_evaluation**
 
@@ -143,13 +153,12 @@ model training 및 evaluation을 진행합니다.
     *success classification 확인 과정*
 
     1. label과 prediction의 object list를 x좌표 기준으로 올림차순 정렬을 수행한다.
-
     2. x좌표가 낮은 object부터 x좌표가 높은 object 순으로 label과 prediction의 class name이 동일한지 확인한다.
     3. 2번의 조건이 만족하면, label과 prediction의 object list를 y좌표 기준으로 올림차순 정렬을 수행한다.
     4. y좌표가 낮은 object부터 y좌표가 높은 object 순으로 label과 prediction의 class name이 동일한지 확인한다.
     5. 1, 2, 3, 4번의 동작에서 모든 조건에 부합한 경우라면, success classification인 것으로 간주한다.
-
-
+  
+  [자세한 설명]()
 
 
 
@@ -159,17 +168,15 @@ model training 및 evaluation을 진행합니다.
 
 ### Utilities
 
-- [dataset.py](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/dataset.md) : Load data **PASCAL VOC 2007, 2012** and perform pre-processing.
+- [dataset.py](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/dataset.md) : Make directory, load data **PASCAL VOC 2007, 2012** and perform pre-processing.
 - [utils.py](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/utils.md) : Contain some utilities function for model training.
 - [loss function.py](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/loss.md#yolo_loss) : Defines the loss function used in the YOLO model.
 
 
 
-
-
 ### model.py
 
-[model.py](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/model.md) : Implement the YOLO model
+[model.py](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/model.md) : Implementing the YOLO model
 
 
 
@@ -177,7 +184,7 @@ model training 및 evaluation을 진행합니다.
 
 [train.py](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/train.md) : 
 
-- Create instance of model class and do gradient descent through `for-loop` for parameter updata
+- Creating instance of model class and do gradient descent through `for-loop` for parameter updata
 - When the iteration reaches a certain number of times, a validation is performed.
 - All training logs and validation logs, label and prediction image comparisons are saved in the tensorboard.
 

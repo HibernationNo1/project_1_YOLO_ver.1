@@ -5,10 +5,10 @@ import tensorflow_datasets as tfds
 
 # dict of classes to detect 
 class_name_dict = {
-	13: "bike", 14: "human"
+	7: "cat", 11: "dog", 12: "horse"
 }
 
-def predicate(x):  # x는 하나의 data.
+def predicate(x):
 	label = x['objects']['label']
 	
 	# class_name_dict의 key에 해당하는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
@@ -23,7 +23,6 @@ def predicate(x):  # x는 하나의 data.
 
 
 # load pascal voc2007/voc2012 dataset using tfds
-
 def load_pascal_voc_dataset(batch_size):  
     # set dataset for training
 	voc2007_test_split_data = tfds.load("voc/2007", split=tfds.Split.TEST, batch_size=1)
