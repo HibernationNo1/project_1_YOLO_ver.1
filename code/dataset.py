@@ -5,13 +5,13 @@ import tensorflow_datasets as tfds
 
 # dict of classes to detect 
 class_name_dict = {
-	7: "cat", 9:"cow"
+	7: "cat", 11: "dog", 12: "horse"
 }
 
-def predicate(x):  # x는 하나의 data.
+def predicate(x):
 	label = x['objects']['label']
 	
-	# 7또는 9라는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
+	# class_name_dict의 key에 해당하는 label의 object가 하나라도 포함 된 data는 모두 추려낸다.	
 	reduced_sum = 0.0
 
 	for label_num in class_name_dict.keys():
@@ -23,7 +23,6 @@ def predicate(x):  # x는 하나의 data.
 
 
 # load pascal voc2007/voc2012 dataset using tfds
-
 def load_pascal_voc_dataset(batch_size):  
     # set dataset for training
 	voc2007_test_split_data = tfds.load("voc/2007", split=tfds.Split.TEST, batch_size=1)
@@ -36,7 +35,7 @@ def load_pascal_voc_dataset(batch_size):
 	voc2007_validation_split_data = tfds.load("voc/2007", split=tfds.Split.VALIDATION, batch_size=1)
 	validation_data = voc2007_validation_split_data
     
-	train_data = train_data.filter(predicate) # 7 label 만 정제해서 할당 
+	train_data = train_data.filter(predicate) # 원하는label 만 정제해서 할당 
 	train_data = train_data.padded_batch(batch_size) # train_data가 filter(predicate) 에 의해 가변적인 크기를 가지고 있으므로 batch 대신 padded_batch 사용
 
 	validation_data = validation_data.filter(predicate)
@@ -119,6 +118,16 @@ def process_each_ground_truth(original_image,
 		ymax = bbox[i][2] * original_h
 
 		class_num = class_labels[i] # 실제 class labels
+
+		# ont_hot encoding
+		num_of_class = len(class_name_dict.keys()) 
+		index_list = [n for n in range(num_of_class)]
+		oh_class_num = (tf.one_hot(tf.cast((index_list), tf.int32), num_of_class, dtype=tf.float32))
+		for j in range(num_of_class): 
+			if int(class_num) == list(class_name_dict.keys())[j]:
+				class_num = oh_class_num[j]
+				break
+		
 
 		# resizing 된 image에 맞는 center coordinate 
 		xcenter = (xmin + xmax) * 1.0 / 2 * width_rate 

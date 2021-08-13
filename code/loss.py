@@ -2,32 +2,24 @@ import tensorflow as tf
 import numpy as np
 from utils import iou
 
-from dataset import class_name_dict
-# class_name_dict = { 7: "cat", 9:"cow" }
-def class_loss_one_hot(num_classes):
-	index_list = [i for i in range(num_classes)]
-	P_one_hot = (tf.one_hot(tf.cast((index_list), tf.int32), num_classes, dtype=tf.float32))
-	return P_one_hot
-
 
 def yolo_loss(predict,
 			  labels,
 			  each_object_num,
-			  num_classes,
-			  boxes_per_cell,
 			  cell_size,
 			  input_width,
 			  input_height,
 			  coord_scale,
 			  object_scale,
 			  noobject_scale,
-			  class_scale,
-			  P_one_hot):
+			  class_scale):
 
-	# parse only coordinate vector
-	# predict의 shape [tf.shape(predict)[0], cell_size, cell_size, num_classes + 5 * boxes_per_cell]
-	predict_boxes = predict[:, :, num_classes + boxes_per_cell:]
-	predict_boxes = tf.reshape(predict_boxes, [cell_size, cell_size, boxes_per_cell, 4])
+	# predict[0] == pred_class 		[1, cell_size, cell_size, num_class]
+	# predict[1] == pred_confidence [1, cell_size, cell_size, boxes_per_cell]
+	# predict[2] == pred_coordinate	[1, cell_size, cell_size, boxes_per_cell, 4]
+		
+	predict_boxes = predict[2]
+	predict_boxes = tf.squeeze(predict_boxes, [0])
 
 	# prediction : absolute coordinate
 	pred_xcenter = predict_boxes[:, :, :, 0]
@@ -39,58 +31,77 @@ def yolo_loss(predict,
 
 	# parse labe
 	labels = np.array(labels) 
-	labels = labels.astype('float32')
 	label = labels[each_object_num, :]
 
 	xcenter = label[0]
-	ycenter = label[1]
+	ycenter = label[1] 
 	sqrt_w = tf.sqrt(label[2])
 	sqrt_h = tf.sqrt(label[3])
+
 
 	# calulate iou between ground-truth and predictions
 	# 각 cell의 각 Bbox와 label과의 iou계산 tf.shape(iou_predict_truth):, [7 7 2]
 	iou_predict_truth = iou(predict_boxes, label[0:4]) 
 
-	# find best box mask
-	I = iou_predict_truth
+	# find best box mask(두 Bbox중에서 IOU가 큰 Bbox선택)
+	# 두 Bbox의 IOU가 같으면 첫 번째 Bbox가 best Bbox
+	I = iou_predict_truth 	
 	max_I = tf.reduce_max(I, 2, keepdims=True)
 	best_box_mask = tf.cast((I >= max_I), tf.float32)
-
+	
 	# set object_loss information(confidence, object가 있을 확률)
-	C = iou_predict_truth
-	pred_C = predict[:, :, num_classes:num_classes + boxes_per_cell] 
+	C = iou_predict_truth 
+
+	arg_c = tf.argmax(C, axis = 2)
+	tmp_object= np.zeros_like(C)
+	for i in range(cell_size):
+		for j in range(cell_size):
+			# 특정 cell의 두 Bbox의 IOU가 0이면 해당 cell의 object label을 전부 0으로 유지
+			if tf.reduce_max(C[i][j]) == 0:    	
+				pass
+			else :
+				# 두 Bbox중 높은 iou를 가지면 1, 아니면 0의 값 (one_hot) 
+				tmp_object[i][j][arg_c[i][j]] = 1  			
+	C_label = tf.constant(tmp_object)
 
 
+	pred_C = predict[1]
+	pred_C = tf.squeeze(pred_C, [0])
+	
 	# set class_loss information(probability, 특정 class일 확률)
-	P = 0.0
-	for i in range(num_classes):
-		if label[4] == list(class_name_dict.keys())[i]:
-			P = P_one_hot[i]
+	pred_P = predict[0]
+	pred_P = tf.squeeze(pred_P, [0])	
+	temp_P = np.zeros_like(pred_P)
+	for i in range(cell_size):
+		for j in range(cell_size):
+				temp_P[i][j] = label[4]
+	P = tf.constant(temp_P)
 
-	pred_P = predict[:, :, 0:num_classes] 
 
 	# find object exists cell mask
 	object_exists_cell = np.zeros([cell_size, cell_size, 1])
 	object_exists_cell_i, object_exists_cell_j = int(cell_size * ycenter / input_height), int(cell_size * xcenter / input_width)
 	object_exists_cell[object_exists_cell_i][object_exists_cell_j] = 1
 
-	# set coord_loss
-	coord_loss = (tf.nn.l2_loss(object_exists_cell * best_box_mask * (pred_xcenter - xcenter) / (input_width / cell_size)) +
+	coord_loss = ((tf.nn.l2_loss(object_exists_cell * best_box_mask * (pred_xcenter - xcenter) / (input_width / cell_size)) +
 					tf.nn.l2_loss(object_exists_cell * best_box_mask * (pred_ycenter - ycenter) / (input_height / cell_size)) +
 					tf.nn.l2_loss(object_exists_cell * best_box_mask * (pred_sqrt_w - sqrt_w)) / input_width +
-					tf.nn.l2_loss(object_exists_cell * best_box_mask * (pred_sqrt_h - sqrt_h)) / input_height ) \
-				* coord_scale
+					tf.nn.l2_loss(object_exists_cell * best_box_mask * (pred_sqrt_h - sqrt_h)) / input_height ) * coord_scale)
+				
 
 	# object_loss
-	object_loss = tf.nn.l2_loss(object_exists_cell * best_box_mask * (pred_C - C)) * object_scale
-
+	object_loss =  tf.reduce_mean(object_exists_cell * best_box_mask * object_scale * tf.nn.sigmoid_cross_entropy_with_logits(C_label, pred_C))
+		
 	# noobject_loss
-	noobject_loss = tf.nn.l2_loss((1 - object_exists_cell) * (pred_C)) * noobject_scale
+	# object loss와 noobject loss의 차이는 indicator function이다.
+	noobject_loss = tf.reduce_mean((1 - object_exists_cell) * best_box_mask * tf.nn.sigmoid_cross_entropy_with_logits(C_label, pred_C) * noobject_scale)
 
-	# class loss
-	class_loss = tf.nn.l2_loss(object_exists_cell * (pred_P - P)) * class_scale
+
+	# class loss 
+	class_loss = tf.reduce_mean(object_exists_cell * class_scale * tf.nn.softmax_cross_entropy_with_logits(P, pred_P))
 
 	# sum every loss
 	total_loss = coord_loss + object_loss + noobject_loss + class_loss
-        
+	
+	
 	return total_loss, coord_loss, object_loss, noobject_loss, class_loss

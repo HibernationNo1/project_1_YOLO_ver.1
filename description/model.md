@@ -31,21 +31,315 @@ image를 **S*S Grid Cell** 로 나누고, 각 cell 별로 **B** 개의 **Boundin
 
 
 
-### Neural Network
+## Neural Network
 
-Keras Model subclassing API로 구현. Class 안에서는 Keras Functional API 방식으로 구글의 *Inception V3* model을 가져온 후 GlobalAveragePooling2D과 Dense Layer을 추가해서 구현했다.  
+### implement with keras.applications
 
-| model or layer         | input | output |
-| ---------------------- | ----- | ------ |
-| InceptionV3.output     | x0    | x1     |
-| GlobalAveragePooling2D | x1    | x2     |
-| Dense                  | x2    | output |
+Keras Model subclassing API와 Keras Functional API 방법으로 구현했으며, `tf.keras.applications`의 *Inception V3*(GoogLeNet응용 version) model을 가져온 후 GlobalAveragePooling2D과 Dense Layer을 추가해서 구현했다.  
+
+[about applications](https://www.tensorflow.org/api_docs/python/tf/keras/applications) 
+
+| model or layer              | input shape                    | output shape                                          |             |                                                 |
+| --------------------------- | ------------------------------ | ----------------------------------------------------- | ----------- | ----------------------------------------------- |
+| InceptionV3.output          | (input_height, input_width, 3) | (None, 5, 5, 2048)                                    |             |                                                 |
+| GlobalAveragePooling2D      |                                | (None, 2048)                                          |             |                                                 |
+| Dense                       |                                | output                                                |             |                                                 |
+| Pred_class Dense  Layer     |                                | units = cell_size * cell_size * num_classes           | → reshape → | [None, cell_size, cell_size, num_classse]       |
+| Pred_confidence Dense Layer |                                | units = cell_size * cell_size * boxes_per_cell        | → reshape → | [None, cell_size, cell_size, boxes_per_cell]    |
+| Pred_coordinate Dense Layer |                                | units = cell_size * cell_size *  (boxes_per_cell * 4) | → reshape → | [None, cell_size, cell_size, boxes_per_cell, 4] |
+| **output**                  |                                | [Pred_class, Pred_confidence, Pred_coordinate]        |             |                                                 |
+
+
+
+#### code
+
+```python
+import tensorflow as tf
+
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+from tensorflow.keras.applications import InceptionV3
+
+# Implementation using tf.keras.applications (https://www.tensorflow.org/api_docs/python/tf/keras/applications)
+# & Keras Functional API (https://www.tensorflow.org/guide/keras/functional)
+class YOLOv1(Model):
+	def __init__(self, input_height, input_width, cell_size, boxes_per_cell, num_classes):
+		super(YOLOv1, self).__init__()
+		base_model = InceptionV3(include_top=False, weights='imagenet', 
+								input_shape=(input_height, input_width, 3))
+		# shape = (None, 5, 5, 2048)
+		base_model.trainable = True
+		x = base_model.output
+    
+		# Global Average Pooling
+		x = GlobalAveragePooling2D()(x)  # shape = (None, 2048)
+		x = Dense(cell_size * cell_size * (num_classes + (boxes_per_cell*5)), activation=None)(x)
+		# flatten vector -> cell_size x cell_size x (num_classes + 5 * boxes_per_cell)
+		pred_class = x[:,  : cell_size * cell_size * num_classes]
+		pred_class = Dense(cell_size * cell_size * num_classes, activation=None)(pred_class)
+
+		pred_confidence = x[:,  cell_size * cell_size * num_classes: (cell_size * cell_size * num_classes) + (cell_size * cell_size * boxes_per_cell)]
+		pred_confidence = Dense(cell_size * cell_size * boxes_per_cell, activation=None)(pred_confidence)
+
+		pred_coordinate = x[:, (cell_size * cell_size * num_classes) + (cell_size * cell_size * boxes_per_cell): ]
+		pred_coordinate = Dense(cell_size * cell_size * (boxes_per_cell*4), activation=None)(pred_coordinate)		
+
+
+		pred_class = tf.reshape(pred_class, 
+				 [tf.shape(pred_class)[0], cell_size, cell_size, num_classes])
+
+		pred_confidence = tf.reshape(pred_confidence, 
+				 [tf.shape(pred_confidence)[0], cell_size, cell_size, boxes_per_cell])		
+
+		pred_coordinate = tf.reshape(pred_coordinate,
+				 [tf.shape(pred_coordinate)[0], cell_size, cell_size, boxes_per_cell, 4])
+
+		output_list = [pred_class, pred_confidence, pred_coordinate]
+	
+		model = Model(inputs=base_model.input, outputs=output_list)
+		self.model = model
+		# print model structure
+		self.model.summary()
+
+	def call(self, x):
+		return self.model(x)
+```
 
 
 
 
 
-## Training process
+### implement without keras.applications
+
+Keras Model subclassing API로 구현. Class 안에서는 Keras Functional API 방식으로 YOLO의 기본 형태와 같은 구성으로 layer을 쌓았다.
+
+![img](https://i0.wp.com/thebinarynotes.com/wp-content/uploads/2020/04/Yolo-Architecture.png?fit=678%2C285&ssl=1)
+
+
+
+
+
+| input image                 | 448 × 448 × 3       |                                                              |             |                                                              |
+| --------------------------- | ------------------- | ------------------------------------------------------------ | ----------- | ------------------------------------------------------------ |
+| back born network           | Darknet             |                                                              |             |                                                              |
+| Convolution                 | kernel size = 7     | num of kernel = 64                                           | strides = 2 | padding = [kernel size/2]                                    |
+| Maxpooling                  | kernel size = 2     |                                                              | strides = 2 |                                                              |
+| **feature map1**            | **112 × 112 × 192** |                                                              |             |                                                              |
+| Convolution                 | kernel size = 3     | num of kernel = 192                                          | strides = 1 | padding = [kernel size]                                      |
+| **feature map2**            | **112 × 112 × 64**  |                                                              |             |                                                              |
+|                             | **112 × 112 × 256** | **staking feature map 1, 2**                                 |             |                                                              |
+| Maxpooling                  | kernel size = 2     |                                                              | strides = 2 |                                                              |
+|                             | **56 × 56 × 256**   |                                                              |             |                                                              |
+| Convolution                 | kernel size = 1     | num of kernel = 128                                          | strides = 1 | padding = [kernel size]                                      |
+| Convolution                 | kernel size = 3     | num of kernel = 256                                          | strides = 1 | padding = [kernel size/2]                                    |
+| Convolution                 | kernel size = 1     | num of kernel = 256                                          | strides = 1 | padding = [kernel size]                                      |
+| Convolution                 | kernel size = 3     | num of kernel = 512                                          | strides = 1 | padding = [kernel size/2]                                    |
+| Maxpooling                  | kernel size = 2     |                                                              | strides = 2 |                                                              |
+|                             | **28 × 28 × 512**   |                                                              |             |                                                              |
+| Conv 1                      | kernel size = 1     | num of kernel = 256                                          | strides = 1 | padding = [kernel size]                                      |
+| Conv 2                      | kernel size = 3     | num of kernel = 512                                          | strides = 1 | padding = [kernel size/2]                                    |
+|                             |                     | **4 times iteration conv 1, 2**                              |             |                                                              |
+| Convolution                 | kernel size = 1     | num of kernel = 512                                          | strides = 1 | padding = [kernel size]                                      |
+| Convolution                 | kernel size = 3     | num of kernel = 1024                                         | strides = 1 | padding = [kernel size/2]                                    |
+| Maxpooling                  | kernel size = 2     |                                                              | strides = 2 |                                                              |
+|                             | **14 × 14 × 1024**  |                                                              |             |                                                              |
+| Conv 3                      | kernel size = 1     | num of kernel = 512                                          | strides = 1 | padding = [kernel size]                                      |
+| Conv 4                      | kernel size = 3     | num of kernel = 1024                                         | strides = 1 | padding = [kernel size/2]                                    |
+|                             |                     | **2 times iteration conv 3, 4**                              |             |                                                              |
+| Convolution                 | kernel size = 3     | num of kernel = 1024                                         | strides = 1 | padding = [kernel size/2]                                    |
+| Convolution                 | kernel size = 3     | num of kernel = 1024                                         | strides = 2 | padding = [kernel size/2]                                    |
+|                             | **7 × 7 × 1024**    |                                                              |             |                                                              |
+| Convolution                 | kernel size = 3     | num of kernel = 1024                                         | strides = 1 | padding = [1 + kernel size/2]                                |
+| Convolution                 | kernel size = 3     | num of kernel = 1024                                         | strides = 1 | padding = [1 + kernel size/2]                                |
+|                             | **7 × 7 × 1024**    |                                                              |             |                                                              |
+| GlobalAveragePooling        |                     |                                                              |             |                                                              |
+|                             | **1 × 1024**        |                                                              |             |                                                              |
+| Dense Layer                 |                     | units = cell_size * cell_size * (num_classes + (boxes_per_cell*5) | → divide →  | Pred_class Dense  Layer,<br />Pred_confidence Dense Layer<br />Pred_coordinate Dense Layer |
+|                             |                     |                                                              |             |                                                              |
+| Pred_class Dense  Layer     |                     | units = cell_size * cell_size * num_classes                  | → reshape → | [None, cell_size, cell_size, num_classse]                    |
+| Pred_confidence Dense Layer |                     | units = cell_size * cell_size * boxes_per_cell               | → reshape → | [None, cell_size, cell_size, boxes_per_cell]                 |
+| Pred_coordinate Dense Layer |                     | units = cell_size * cell_size *  (boxes_per_cell * 4)        | → reshape → | [None, cell_size, cell_size, boxes_per_cell, 4]              |
+| **output**                  |                     | [Pred_class, Pred_confidence, Pred_coordinate]               |             |                                                              |
+
+
+
+#### code
+
+```python
+import tensorflow as tf
+
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dense, GlobalAveragePooling2D
+from tensorflow.keras.layers import ZeroPadding2D, BatchNormalization, LeakyReLU, Dropout
+from tensorflow.keras.regularizers import L1, L2
+
+from functools import reduce
+
+
+# Implementation using tf.keras.applications (https://www.tensorflow.org/api_docs/python/tf/keras/applications)
+# & Keras Functional API (https://www.tensorflow.org/guide/keras/functional)
+class YOLOv1(Model):
+	def __init__(self, input_height, input_width, cell_size, boxes_per_cell, num_classes):
+		super(YOLOv1, self).__init__()
+		input_tensor = Input(shape = (input_height, input_width, 3))
+		# shape = [None, 448, 448, 3]
+
+		#x = Conv2D(filters = 64, kernel_size = 7, strides = 2, padding = 'valid')(input_tensor)
+		#x = BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001)(x)
+		#x = Dropout(0.2)(x)
+		#x = LeakyReLU(alpha = 0.1)(x)
+		#x = MaxPooling2D(pool_size = 2, strides = 2)(x)
+		x = self.compose([self.maxpooling(2, 2), self.padding(int(7/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(64, 7, 2)])(input_tensor)
+		# shape = [None, 112, 112, 64]
+
+		x = self.compose([self.maxpooling(2, 2), self.padding(3), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(192, 3, 1)])(x)
+		# shape = [None, 56, 56, 192]
+
+		x = self.compose([self.padding(1), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(128, 1, 1)])(x)
+		x = self.compose([self.padding(int(3/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(256, 3, 1)])(x)
+		x = self.compose([self.padding(1), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(256, 1, 1)])(x)
+		x = self.compose([self.maxpooling(2, 2), self.padding(int(7/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(512, 3, 1)])(x)
+		# shape = [None, 28, 28, 512]
+
+		x = self.compose([self.padding(1), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(256, 1, 1)])(x)
+		x = self.compose([self.padding(int(3/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(512, 3, 1)])(x)
+		x = self.compose([self.padding(1), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(256, 1, 1)])(x)
+		x = self.compose([self.padding(int(3/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(512, 3, 1)])(x)
+		x = self.compose([self.padding(1), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(256, 1, 1)])(x)
+		x = self.compose([self.padding(int(3/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(512, 3, 1)])(x)
+		x = self.compose([self.padding(1), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(256, 1, 1)])(x)
+		x = self.compose([self.padding(int(3/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(512, 3, 1)])(x)
+		x = self.compose([self.padding(1), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(512, 1, 1)])(x)
+		x = self.compose([self.maxpooling(2, 2), self.padding(int(3/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(1024, 1, 1)])(x)
+		# shape = [None, 14, 14, 1024]
+
+		x = self.compose([self.padding(1), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(512, 1, 1)])(x)
+		x = self.compose([self.padding(int(3/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(1024, 3, 1)])(x)
+		x = self.compose([self.padding(1), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(512, 1, 1)])(x)
+		x = self.compose([self.padding(int(3/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(1024, 3, 1)])(x)
+		x = self.compose([self.padding(int(3/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(1024, 3, 1)])(x)
+		x = self.compose([self.padding(int(3/2)), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(1024, 3, 2)])(x)
+		# shape = [None, 7, 7, 1024]
+
+		x = self.compose([self.padding(2), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(1024, 3, 1)])(x)
+		x = self.compose([self.padding(2), LeakyReLU(alpha = 0.1), Dropout(0.2), 
+						BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001), self.conv(1024, 3, 1)])(x)
+		# shape = [None, 7, 7, 1024]
+
+		# Global Average Pooling
+		x = GlobalAveragePooling2D()(x)  # shape = (None, 1024)
+		x = Dense(cell_size * cell_size * (num_classes + (boxes_per_cell*5)), activation=None)(x)
+		# flatten vector -> cell_size x cell_size x (num_classes + 5 * boxes_per_cell)
+		pred_class = x[:,  : cell_size * cell_size * num_classes]
+		pred_class = Dense(cell_size * cell_size * num_classes, activation=None, kernel_regularizer = L2(l=0.01))(pred_class)
+
+		pred_confidence = x[:,  cell_size * cell_size * num_classes: (cell_size * cell_size * num_classes) + (cell_size * cell_size * boxes_per_cell)]
+		pred_confidence = Dense(cell_size * cell_size * boxes_per_cell, activation=None, kernel_regularizer = L2(l=0.03))(pred_confidence)
+
+		pred_coordinate = x[:, (cell_size * cell_size * num_classes) + (cell_size * cell_size * boxes_per_cell): ]
+		pred_coordinate = Dense(cell_size * cell_size * (boxes_per_cell*4), activation=None, kernel_regularizer = L1(l=0.1))(pred_coordinate)		
+
+
+		pred_class = tf.reshape(pred_class, 
+				 [tf.shape(pred_class)[0], cell_size, cell_size, num_classes])
+
+		pred_confidence = tf.reshape(pred_confidence, 
+				 [tf.shape(pred_confidence)[0], cell_size, cell_size, boxes_per_cell])		
+
+		pred_coordinate = tf.reshape(pred_coordinate,
+				 [tf.shape(pred_coordinate)[0], cell_size, cell_size, boxes_per_cell, 4])
+
+		output_list = [pred_class, pred_confidence, pred_coordinate]
+	
+		model = Model(inputs=input_tensor, outputs=output_list)
+		self.model = model
+		# print model structure
+		self.model.summary()
+
+	def conv(self, num_filters, k_size, strd):
+		return Conv2D(filters = num_filters, kernel_size = k_size, strides = strd, padding = 'valid')
+
+	def maxpooling(self, p_size , strd):
+		return MaxPooling2D(pool_size = p_size, strides = strd)
+
+	def padding(self, p_size):
+		return ZeroPadding2D(padding= p_size)
+
+	def compose(self, functions):
+		return reduce(lambda f, g: lambda x: f(g(x)), functions)
+
+	def call(self, x):
+		return self.model(x)
+```
+
+- overfitting을 예방하기 위해 regularization방법으로 conv layer 직후 dropout layer를 사용했으며, dense layer에는 L1 Regularization, L2 Regularization을 적용했다.
+
+- internal Convariate Shift 문제를 해결하기 위해 Batch Normalization layer를 사용했다.
+
+- ```python
+     def batch_normal(self):
+      	return BatchNormalization(axis = -1, momentum=0.99, epsilon=0.001)   
+  ```
+
+  해당 method를 정의 후 compose 안에서 BatchNormalization 대체로 호출하면 
+   `batch_normal() takes 1 positional argument but 2 were given` 이라는 이슈 발생. 원인 불명.
+
+  같은 반환으로 method 없이 직접 호출하면 argument == 1로 이상 없이 동작한다.
+
+  수정사항
+
+
+
+#### compare inception.V3 and without inception.V3
+
+input width, height를 224에서 448로 수정 후 학습을 진행시켰다.
+
+inception.V3을 포함한 model은 150step까지, inception.V3을 포함하지 않은 model은 100step까지 학습한 것의 경과를 비교해보았다.
+
+- **class loss**
+  - inception.V3
+  - without inception.V3
+- **coordinate loss**
+  - inception.V3
+  - without inception.V3
+- **object loss**
+  - inception.V3
+  - without inception.V3
+- **noobject loss**
+  - inception.V3
+  - without inception.V3
+- **total loss**
+  - inception.V3
+  - without inception.V3
+
+
+
+
+
+## display process of bounding box
 
 1. #### **YOLO Model에 image를 input**
 
@@ -78,76 +372,6 @@ Keras Model subclassing API로 구현. Class 안에서는 Keras Functional API �
 
 **exmple : S = 7, B = 2, C = 20 일 경우**
 ![](https://curt-park.github.io/images/yolo/DeepSystems-NetworkArchitecture.JPG)
-
-
-
-- **output**
-
-  7 × 7 × 30에서, 각 grid cell에 대하여 
-
-  - 30차원 vector의 앞 5개 :  1개의 Bounding Box를 표현
-  - 그 다음 5개: 두 번째 Bounding Box를 표현
-  - 그 다음 20개 : 각 class에 대한 softmax regression confidence 
-
-
-
-- class scores for bounding box
-
-  grid = (7, 7) 이고 bounding box  = 2, class = 20 이므로
-
-  (20개의 class에 대한 probability) * (bounding box의 confidence) =  20 × 1 의 vector가 7 × 7 × 2 개 
-
-   즉, 98개의 bounding box가 나오게 된다.
-
-
-
-## Code
-
-Implementated using tf.keras.applications 
-
-[about applications](https://www.tensorflow.org/api_docs/python/tf/keras/applications) 
-
-```python
-import tensorflow as tf
-
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
-from tensorflow.keras.applications import InceptionV3
-
-class YOLOv1(Model):
-	def __init__(self, input_height, input_width, cell_size, boxes_per_cell, num_classes):
-		super(YOLOv1, self).__init__()
-        # keras.applications을 통해 GoogLeNet ver.3을 가져온다.
-		base_model = InceptionV3(include_top=False, weights='imagenet', 
-								input_shape=(input_height, input_width, 3))
-		base_model.trainable = True
-        
-        # Using keras Functional API  ( x == feature map )
-		x = base_model.output
-    
-		# Global Average Pooling 사용
-		x = GlobalAveragePooling2D()(x)
-		output = Dense(cell_size * cell_size * (num_classes + (boxes_per_cell*5)), activation=None)(x)
-		model = Model(inputs=base_model.input, outputs=output)
-		self.model = model
-		# print model structure
-		self.model.summary()
-
-	def call(self, x):
-		return self.model(x)
-```
-
-- Keras Functional API (https://www.tensorflow.org/guide/keras/functional)
-
-| model or layer         | input | output |
-| ---------------------- | ----- | ------ |
-| InceptionV3.output     | x0    | x1     |
-| GlobalAveragePooling2D | x1    | x2     |
-| Dense                  | x2    | output |
-
-
-
-- line 13 : include parameters of GoogLeNet ver.3 for training to get better performance
 
 
 
