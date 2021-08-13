@@ -2,9 +2,7 @@
 
 이 프로젝트는 YOLO v.1의 논문을 읽고 구현해보는 [인프런](https://www.inflearn.com/)의 강의를 참고하여 진행했습니다.
 
-paper Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%EB%9F%AC%EB%8B%9D-%EB%85%BC%EB%AC%B8%EA%B5%AC%ED%98%84/dashboard
-
-
+[paper Reference](https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%EB%9F%AC%EB%8B%9D-%EB%85%BC%EB%AC%B8%EA%B5%AC%ED%98%84/dashboard)
 
 **강의 교육 내용**
 
@@ -14,7 +12,7 @@ paper Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%E
 
 **project를 진행한 목적**
 
-해당 강의에서 제공되는 code는 YOLO model의 initial version이며, single class를 학습하고 여러 계산 과정에 오류가 있는 등 날것 그대로의 형태를 가지고 있습니다. 저는 이러한 code를 직접 개선하고 발전시켜나가며 스스로의 역량을 키우고자 프로젝트를 진행하게 되었습니다. 개선 사항에 대해서는 [improvement list](#'improvement list') 에 기록하였습니다.
+해당 강의에서 제공되는 code는 YOLO model의 initial version이며, single class를 학습하고 여러 계산 과정에 오류가 있는 등 날것 그대로의 형태를 가지고 있습니다. 저는 이러한 code를 직접 개선하고 발전시켜나가며 스스로의 역량을 키우고자 프로젝트를 진행하게 되었습니다. 개선 사항에 대해서는 [improvement list](#improvement-list) 에 기록하였습니다.
 
 
 
@@ -53,7 +51,7 @@ paper Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%E
 
   `CONTINUE_LEARNING = True `: 이전에 했던 training의 step에 이어서 진행 할 경우
 
-  [자세한 설명]()
+  [detail](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/improvements/CONTINUE_LEARNING.md)
 
 - **multi_object_detection**
 
@@ -61,7 +59,7 @@ paper Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%E
 
   저는 multi class에 대한 학습과 test를 위해 dataset에서 여러개의 class를 extraction하는 것으로 변경하였고, test result 또한 특정 조건(confidence score)을 만족한 여러개의 Bbox를 표현하도록 했습니다.
 
-  [자세한 설명]()
+  [detail](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/improvements/multi_object_detection.md)
 
 - **confidence_score**
 
@@ -71,7 +69,7 @@ paper Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%E
 
   또한 multi object detection을 위해 각 object마다 [cell_size, cell_size, box_per_cell] shape의 iou를 계산하도록 했습니다.
 
-  [자세한 설명]()
+  [detail](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/improvements/confidence_score.md)
 
 - **remove_irrelevant_label**
 
@@ -81,7 +79,7 @@ paper Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%E
 
   이를 해결하기 위해 label에 포함된 class중 target class외의 모든 class에 대한 value를 0으로 만드는 function을 정의했습니다.
 
-  [자세한 설명]()
+  [detail](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/improvements/remove_irrelevant_label.md)
 
 - **improve_total_loss**  
 
@@ -99,7 +97,7 @@ paper Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%E
 
     또한 class loss는 예측한 특정 class에 대한 probability를 표현하기 때문에 사용되는 loss functiond은 MSE가 아닌 `tf.nn.softmax_cross_entropy_with_logits`으로 적용했습니다.
 
-  [자세한 설명]()
+  [detail](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/improvements/improve_loss_function.md)
 
 - **performance_evaluation**
 
@@ -158,7 +156,7 @@ paper Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%E
     4. y좌표가 낮은 object부터 y좌표가 높은 object 순으로 label과 prediction의 class name이 동일한지 확인한다.
     5. 1, 2, 3, 4번의 동작에서 모든 조건에 부합한 경우라면, success classification인 것으로 간주한다.
   
-  [자세한 설명]()
+  [detail](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/improvements/performance_evaluation.md)
 
 
 
@@ -204,19 +202,21 @@ paper Reference : https://www.inflearn.com/course/%EC%9A%9C%EB%A1%9C-%EB%94%A5%E
 
 **detail analysis** : [here](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/Analysis.md)
 
-Training will continue as 10 epochs progress, Validation was performed every 50 steps.
+Training will continue as 1000step progress, Validation was performed every 100 steps.
 
 I use tensorboard to show valuse
 
 **train total_loss**
 
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/total_loss.jpg?raw=true)
+I have restarted when 1000 step for check CONTINUE_LEARNING flags
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/main_total_loss.png?raw=true)
 
 
 
 **validation total_loss**
 
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/total_validation_total_loss.jpg?raw=true)
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/validation_total_loss.png?raw=true)
 
 
 
@@ -224,19 +224,17 @@ I use tensorboard to show valuse
 
 The right is the label image and the left is the predicted image by model
 
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/5_result.png?raw=true)
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/0_result.png?raw=true)
 
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/9_result.png?raw=true)
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/409_result.png?raw=true)
 
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/10_result.png?raw=true)
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/431_result.png?raw=true)
 
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/11_result.png?raw=true)
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/6_result.png?raw=true)
 
 
 
-It seems that detection works well for large objects, but have low accuracy for small objects.
 
-It detect only one object if two or more objects exist in image because it made to represent only the one bounding box with the highest confidence.
 
 
 
