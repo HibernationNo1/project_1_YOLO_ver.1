@@ -122,7 +122,7 @@
     Average\ Detection\ Rate = \frac{Sum \ Detection\ Rate }{Num\ Test\ Image}
     $$
 
-    
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/1.png?raw=true)
 
   - **perfect_detection_accuracy**
   
@@ -132,6 +132,7 @@
     $$
     Perfect\ Detection\ Accuracy = \frac{Num\ Perfect\ Detection }{Num\ Test\ Image}
     $$
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/2.png?raw=true)
   
   
     > label object가 1개일 때 2개 이상을 감지하면 over detection
@@ -139,9 +140,9 @@
     > label object가 2개일 때 1개만을 감지하면 low detection
     >
     > label object가 n개일 때 n를 감지하면 perfect detection
-
+  
     위의 detection_rate == 100% 인 경우 perfect detection인 것으로 결정했습니다.
-
+  
   - **classification_accuracy**
   
     result에 대한 대한 정확한 classification이 이루어진 비율입니다.
@@ -153,7 +154,8 @@
     Classification Accuracy = \frac{Num\ Correct\ Answers\ Class }{Num\ Test\ Image}
     $$
     
-  
+    ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/3.png?raw=true)
+    
     *success classification 확인 과정*
     
     1. label과 prediction의 object list를 x좌표 기준으로 올림차순 정렬을 수행한다.
