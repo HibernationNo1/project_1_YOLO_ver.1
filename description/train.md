@@ -48,7 +48,7 @@ from dataset import class_name_dict
 - [save_tensorboard_log](#save_tensorboard_log)
 - [save_validation_result](#save_validation_result)
 - [main(_)](#main(_))
-- [Full code]("#Full code")
+- [Full code](#Full-code)
 
 
 

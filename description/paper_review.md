@@ -8,7 +8,7 @@ Reference : https://arxiv.org/abs/1506.02640v1
 
 리뷰는 각 part에서 어떤 정보를 알 수 있었는지에 대해서 적어보았다.
 
-논문을 읽은 순서는 [Abstract](#Abstract) → [Conclusion](#Conclusion) → [Introduction](#Introduction) → [Unified Detection](#'Unified Detection') 이다.
+논문을 읽은 순서는 [Abstract](#Abstract) → [Conclusion](#Conclusion) → [Introduction](#Introduction) → [Unified Detection](#Unified-Detection) 이다.
 
 
 

@@ -72,10 +72,10 @@ j : j 번째 detector (0부터 [Bboxs per cell] 까지)
 
 **contents**
 
-- [coordinate loss]("#coordinate loss")
-- [confidence loss]("#confidence loss")
-- [class loss]("#class loss")
-- [Total loss]("#Total loss")
+- [coordinate loss](#coordinate-loss)
+- [confidence loss](#confidence-loss)
+- [class loss](#class-loss)
+- [Total loss](#Total-loss)
 - [code](#code)
 
 
