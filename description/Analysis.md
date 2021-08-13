@@ -1,134 +1,154 @@
 # Analysis
 
-training은 10번의 epoch가 진행 될 때 까지 수행했으며, 그 과정에서 Validation은 `step%50 == 0`마다 수행되도록 진행했다.
+training은 10번의 epoch가 진행 될 때 까지 수행했으며, 그 과정에서 Validation은 `step%100 == 0`마다 수행되도록 진행했습니다.
 
 
 
-## Train loss
-
-- class_loss : loss of predicted class value
-
-  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/class_loss.jpg?raw=true)
-
-- coord_loss : loss of object's coordinates + loss of width, height about object bounding box
-
-  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/coord_loss.jpg?raw=true)
-
-- noobject_loss : confidence loss for bounding box of each cell without an object
-
-  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/noobject_loss.jpg?raw=true)
-
-  학습 초기에 값의 변화가 크게 있었지만, 이후 0으로 수렴하는것으로 보아 초기 loss의 순간적인 발산은 특정 data에 의해서 일시적으로 일어난 현상일 뿐임을 알 수 있다.
-
-- object_loss : confidence loss for bounding box of each cell exist an object
-
-  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/object_loss.jpg?raw=true)
-
-  전체적으로 loss의 튐 현상이 파동 형태로 나타나지만 결국 평균적인 loss는 점점 작은 값으로 수렴하는 모습을 보이고 있다.
+- [loss](#loss)
+  - [train loss](#train-loss)
+  - [Validatio loss](#Validation-loss)
+  - [conclusion](#conclusion)
+- [check result with validation, test image](#check-result-with-validation,-test image)
+- [Check learning rate decay](#Check-learning-rate-decay)
 
 
+
+## loss
+
+#### train loss
+
+- class_loss 
+
+  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/main_calss_loss.png?raw=true)
+
+- coord_loss 
+
+  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/main_coord_loss.png?raw=true)
+
+- noobject_loss
+
+  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/main_noobject_loss.png?raw=true)
+
+- object_loss 
+
+  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/main_object_loss.png?raw=true)
+
+  
 
 **total_loss**
 
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/total_loss.jpg?raw=true)
-
-total_loss는 값의 발산 없이 0의 값으로 수렴하고자 하는 모습을 볼 수 있다.
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/main_total_loss.png?raw=true)
 
 
 
-## Validation loss
+#### Validation loss
+
+Validation loss는 10개의 image에 대한 loss의 총 합을 표현했기 때문에 test loss보다 10배 큰 값으로 기록되었다.
+
+더욱 낮은 Validation loss을 위해 drop out의 비율을 0.2, 0.3, 0.4를 시도하고 kernel_regularizer 의 값을 각각의 dense layer에 대해서 coordinate dense L1 = 0.02~0.1 , class dense L2 = 0.01~0.05 , confidence dense L2 = 0.01~0.03를 적용해 보았지만 학습 간 의미있는 Validation loss의 최소값 변화는 없었다.
+
+이를 통해 overfitting 문제는 없음을 확인했다.
 
 - class_loss : 
 
-  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/total_validation_class_loss.jpg?raw=true)
+  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/validation_calss_loss.png?raw=true)
 
 - coord_loss : 
 
-  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/total_validation_coord_loss.jpg?raw=true)
+  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/validation_coord_loss.png)
 
 - noobject_loss : 
 
-  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/total_validation_noobject_loss.jpg?raw=true)
+  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/validation_noobject_loss.png?raw=true)
 
 - object_loss : 
 
-  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/total_validation_object_loss.jpg?raw=true)
+  ![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/validation_object_loss.png?raw=true)
 
 
 
 **total loss**
 
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/total_validation_total_loss.jpg?raw=true)
-
-전체적으로 Training의 각각의 loss보다 더욱 깔끔하게 loss가 0으로 수렴하는 모습을 볼 수 있다.
-
-특히 object_loss의 파동형 발산은 보이지 않는 모습이다. 이를 통해 batch size를 1로 설정한 것 보다, batch size를 50으로 설정하고 training을 진행한다면 더욱 안정적인 학습이 이루어질 것이라는 기대를 가질 수 있다.
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/validation_total_loss.png?raw=true)
 
 
 
-## Check model save, restore
+### conclusion
 
-model은 학습 과정에서 100×n 번째 step마다 save되도록 하고, 학습을 진행했다.
-
-그리고 100, 200번째 step마다 학습을 중단시킨 후, 마지막에 저장된 model을 다시 가져와 학습하도록 해 보았다.
-
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/check_loss.jpg?raw=true)
-
-위의 그래프는 total loss를 시각화 한 것이다. 보다시피 100번째, 200번째 step에서 학습을 시작 할 때 마다 loss는 random한 값으로 주어지는 weigh와 bias에 의해 큰 값으로 시작하지만, 이미 학습 된 model의 parameters에 의해 loss의 derivative가 높아 loss가 빠르게 낮아지는 것을 볼 수 있다. 
+400번째 step부터 loss의 큰 변화 없이 1epoch(약 120step)마다 일정한 파형을 그리지만, 1epoch의 평균 최소값은 작아지지 않음을 보여준다. 이에 따라 intersection of union값 역시 커지지 않으며 학습의 진전이 없는 것으로 판단된다.
 
 
+
+더 나은 학습을 위한 시도(진행중)
+
+- input image의 width와 height를 224에서 448로 증가시켜도 학습의 정확성은 증가하지 않고, loss만 두 배로 커짐을 확인했다.
+
+- learning rate의 감소율을 400step부터 더욱 크게 증가시켜도 파형이 유지되는 step이 많아질 뿐, 파형 자체는 유지됨을 확인했다.
+
+- YOLO model에 사용되었던 tf.keras.applicatio inceptionV3대신 각 layer을 직접 쌓는 식으로 model을 구현해 보았지만 loss가 소폭 증가할 뿐 개선되지는 않았다.
+
+   
+
+
+
+## check result with validation, test image
+
+The right is the label image and the left is the predicted image by model
+
+**validation image**
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/val1.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/val2.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/val5.png?raw=true)
+
+
+
+
+
+**test image**
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/test1.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/test2.png?raw=true)
+
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/94_result.png?raw=true)
+
+
+
+backbone network로 darknet을 사용한 YOLO model에 비해 전체적으로 object detection rate는 크게 낮은 결과를 보여주고 있으며 다중 object에 대해서 detection 비율은 좋지 못함을 볼 수 있다.
+
+특히, cat은 object의 color가 background color와 크게 다르고 귀의 모양이 두드러지게 확인이 가능할 때 더욱 높은 detect rate를 보여주었고, horse는 다리와 머리가 모두 측면으로 나타나는 image에서 높은 detect rate를 노여주는 것으로 확인되었다.
+
+
+
+- confidence score가 0.7 이상인 object만을 검출했을 때 performance evaluation에 의한 average detection rate는 20%를 넘지 못하는 낮은 수치를 확인할 수 있었다.
+
+  정답과 같은 수의 object를 detection한 perfect detection인 경우 해당 class에 대해서 정답과 같은 class를 예측한 classification accuracy는 100%임을 확인했다.
+
+- confidence score가 0.5 이상인 object만을 검출했을 때 실제 object보다 더 많은 object를 검출하는 경우인 over detect인 경우가 크게 높아져 average detection rate가 여전히 20%를 넘지 못했다.
+
+  이를 통해 가장 이상적인 경우는 confidence score가 1에 가까운 경우일 때 Bbox를 표현하는 것이고, 이를 위해서는 coordinate loss를 줄이는 방향으로 개선해야 한다는 것을 알 수 있었다.
 
 
 
 ## Check learning rate decay
 
-flags를 통해 initial learning rate는 0.0001로,  학습 과정에서 200번의 step마다 learning rate가 0.75씩 곱해져 적용되도록 해 놓았다.
+flags를 통해 initial learning rate는 0.0001로,  학습 과정에서 100번의 step마다 learning rate가 0.5씩 곱해져 적용되도록 해 놓았습니다.
 
 ```python
 flags.DEFINE_float('init_learning_rate', default=0.0001, help='initial learning rate') # original paper : 0.001 (1epoch) -> 0.01 (75epoch) -> 0.001 (30epoch) -> 0.0001 (30epoch)
 
-flags.DEFINE_float('lr_decay_rate', default=0.75, help='decay rate for the learning rate')
+flags.DEFINE_float('lr_decay_rate', default=0.5, help='decay rate for the learning rate')
 
-flags.DEFINE_integer('lr_decay_steps', default=200, help='number of steps after which the learning rate is decayed by decay rate') # 2000번 마다 init_learning_rate * lr_decay_rate 을 실행
+flags.DEFINE_integer('lr_decay_steps', default=100, help='number of steps after which the learning rate is decayed by decay rate') # 2000번 마다 init_learning_rate * lr_decay_rate 을 실행
 ```
 
 
 
 그래프를 통해 learning rate의 decay가 잘 적용되었는지 확인해보자
 
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/learning_Rate.jpg?raw=true)
+![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/description/image/learning%20rate.png?raw=true)
 
-학습은 총 1k step까지 진행이 되었고, 매 200번째 step마다 0.75의 값이 learning rate에 곱해져 적용되었음을 확인할 수 있다.
-
-
-
-## Evaluation with validation, test image
-
-The right is the label image and the left is the predicted image by model
-
-**validation image**
-
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/vaildation_image_0.jpg?raw=true)
-
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/vaildation_image_1.jpg?raw=true)
-
-
-
-**test image**
-
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/0_result.png?raw=true)
-
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/1_result.png?raw=true)
-
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/2_result.png?raw=true)
-
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/9_result.png?raw=true)
-
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/6_result.png?raw=true)
-
-![](https://github.com/HibernationNo1/project_YOLO_ver.1/blob/master/image/11_result.png?raw=true)
-
-큰 object들에 대해서는 detection이 잘 이루어지는것으로 보이지만, 작은 object에 대해서는 정확도가 낮은 것으로 판단된다.
-
-또한 confidence가 가장 높은 boundingbox 1개만 표현하도록 했기 때문에 2개의 object에 대해서는 1개의 predictor만 표현되는 것을 확인할 수 있다.
-
+학습은 총 1k step까지 진행이 되었고, 매 100번째 step마다 0.5의 값이 learning rate에 곱해져 적용되었음을 확인할 수 있습니다.
