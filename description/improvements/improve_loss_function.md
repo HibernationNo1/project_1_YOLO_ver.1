@@ -254,13 +254,6 @@ C = iou_predict_truth
 
 object_loss와 noobject_loss의 값의 범위를 sigmoid로 0~1으로 맞추고, cross entropy를 사용해서 loss를 계산하였다.
 
-
-
-tf.sigmoid를 먹이고 tensorflow.keras.losses.BinaryCrossentropy와 tf.nn.sigmoid_cross_entropy_with_logits의 차이점
-전자는 학습이 잘 안되고 후자는 잘됨 왜? <<이거 수정할것
-
-
-
 **변경 전 `confidence_loss`**
 
 ```python

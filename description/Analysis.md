@@ -45,7 +45,7 @@ training은 10번의 epoch가 진행 될 때 까지 수행했으며, 그 과정�
 
 Validation loss는 10개의 image에 대한 loss의 총 합을 표현했기 때문에 test loss보다 10배 큰 값으로 기록되었다.
 
-더욱 낮은 Validation loss을 위해 drop out의 비율을 0.2, 0.3, 0.4를 시도하고 kernel_regularizer 의 값을 각각의 dense layer에 대해서 coordinate dense L1 = 0.02~0.1 , class dense L2 = 0.01~0.05 , confidence dense L2 = 0.01~0.03를 적용해 보았지만 학습 간 의미있는 Validation loss의 최소값 변화는 없었다.
+더욱 낮은 Validation loss을 위해 drop out의 비율을 0.2, 0.3, 0.4를 시도하고 kernel_regularizer 의 값을 각각의 dense layer에 대해서 coordinate dense L1 = 0.02 \~ 0.1 , class dense L2 = 0.01 \~ 0.05 , confidence dense L2 = 0.01~0.03를 적용해 보았지만 학습 간 의미있는 Validation loss의 최소값 변화는 없었다.
 
 이를 통해 overfitting 문제는 없음을 확인했다.
 
@@ -119,7 +119,7 @@ The right is the label image and the left is the predicted image by model
 
 backbone network로 darknet을 사용한 YOLO model에 비해 전체적으로 object detection rate는 크게 낮은 결과를 보여주고 있으며 다중 object에 대해서 detection 비율은 좋지 못함을 볼 수 있다.
 
-특히, cat은 object의 color가 background color와 크게 다르고 귀의 모양이 두드러지게 확인이 가능할 때 더욱 높은 detect rate를 보여주었고, horse는 다리와 머리가 모두 측면으로 나타나는 image에서 높은 detect rate를 노여주는 것으로 확인되었다.
+특히, cat은 object의 color가 background color와 크게 다르고 귀의 모양이 두드러지게 확인이 가능할 때 더욱 높은 detect rate를 보여주었고, horse는 다리와 머리가 모두 측면으로 나타나는 image에서 높은 detect rate를 보여주는 것으로 확인되었다.
 
 
 
